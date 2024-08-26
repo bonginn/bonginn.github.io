@@ -2,81 +2,81 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
     <channel>
         <title>Tags on bonginn&#39;s blog</title>
-        <link>https://bonnginn.github.io/tags/</link>
+        <link>https://bonginn.github.io/tags/</link>
         <description>Recent content in Tags on bonginn&#39;s blog</description>
         <generator>Hugo -- gohugo.io</generator>
         <language>en</language>
         <copyright>Example Person</copyright>
-        <lastBuildDate>Sun, 10 Mar 2024 00:00:00 +0000</lastBuildDate><atom:link href="https://bonnginn.github.io/tags/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Sun, 10 Mar 2024 00:00:00 +0000</lastBuildDate><atom:link href="https://bonginn.github.io/tags/index.xml" rel="self" type="application/rss+xml" /><item>
         <title>Privacy</title>
-        <link>https://bonnginn.github.io/tags/privacy/</link>
+        <link>https://bonginn.github.io/tags/privacy/</link>
         <pubDate>Sun, 10 Mar 2024 00:00:00 +0000</pubDate>
         
-        <guid>https://bonnginn.github.io/tags/privacy/</guid>
+        <guid>https://bonginn.github.io/tags/privacy/</guid>
         <description></description>
         </item>
         <item>
         <title>Shortcodes</title>
-        <link>https://bonnginn.github.io/tags/shortcodes/</link>
+        <link>https://bonginn.github.io/tags/shortcodes/</link>
         <pubDate>Sun, 10 Mar 2024 00:00:00 +0000</pubDate>
         
-        <guid>https://bonnginn.github.io/tags/shortcodes/</guid>
+        <guid>https://bonginn.github.io/tags/shortcodes/</guid>
         <description></description>
         </item>
         <item>
         <title>Css</title>
-        <link>https://bonnginn.github.io/tags/css/</link>
+        <link>https://bonginn.github.io/tags/css/</link>
         <pubDate>Mon, 11 Mar 2019 00:00:00 +0000</pubDate>
         
-        <guid>https://bonnginn.github.io/tags/css/</guid>
+        <guid>https://bonginn.github.io/tags/css/</guid>
         <description></description>
         </item>
         <item>
         <title>Html</title>
-        <link>https://bonnginn.github.io/tags/html/</link>
+        <link>https://bonginn.github.io/tags/html/</link>
         <pubDate>Mon, 11 Mar 2019 00:00:00 +0000</pubDate>
         
-        <guid>https://bonnginn.github.io/tags/html/</guid>
+        <guid>https://bonginn.github.io/tags/html/</guid>
         <description></description>
         </item>
         <item>
         <title>Markdown</title>
-        <link>https://bonnginn.github.io/tags/markdown/</link>
+        <link>https://bonginn.github.io/tags/markdown/</link>
         <pubDate>Mon, 11 Mar 2019 00:00:00 +0000</pubDate>
         
-        <guid>https://bonnginn.github.io/tags/markdown/</guid>
+        <guid>https://bonginn.github.io/tags/markdown/</guid>
         <description></description>
         </item>
         <item>
         <title>Themes</title>
-        <link>https://bonnginn.github.io/tags/themes/</link>
+        <link>https://bonginn.github.io/tags/themes/</link>
         <pubDate>Mon, 11 Mar 2019 00:00:00 +0000</pubDate>
         
-        <guid>https://bonnginn.github.io/tags/themes/</guid>
+        <guid>https://bonginn.github.io/tags/themes/</guid>
         <description></description>
         </item>
         <item>
         <title>Tag With Whitespaces</title>
-        <link>https://bonnginn.github.io/tags/tag-with-whitespaces/</link>
+        <link>https://bonginn.github.io/tags/tag-with-whitespaces/</link>
         <pubDate>Sat, 09 Mar 2019 00:00:00 +0000</pubDate>
         
-        <guid>https://bonnginn.github.io/tags/tag-with-whitespaces/</guid>
+        <guid>https://bonginn.github.io/tags/tag-with-whitespaces/</guid>
         <description></description>
         </item>
         <item>
         <title>Text</title>
-        <link>https://bonnginn.github.io/tags/text/</link>
+        <link>https://bonginn.github.io/tags/text/</link>
         <pubDate>Sat, 09 Mar 2019 00:00:00 +0000</pubDate>
         
-        <guid>https://bonnginn.github.io/tags/text/</guid>
+        <guid>https://bonginn.github.io/tags/text/</guid>
         <description></description>
         </item>
         <item>
         <title>Emoji</title>
-        <link>https://bonnginn.github.io/tags/emoji/</link>
+        <link>https://bonginn.github.io/tags/emoji/</link>
         <pubDate>Tue, 05 Mar 2019 00:00:00 +0000</pubDate>
         
-        <guid>https://bonnginn.github.io/tags/emoji/</guid>
+        <guid>https://bonginn.github.io/tags/emoji/</guid>
         <description></description>
         </item>
         
