@@ -7,7 +7,26 @@
         <generator>Hugo -- gohugo.io</generator>
         <language>en</language>
         <copyright>Example Person</copyright>
-        <lastBuildDate>Sat, 24 Aug 2024 00:00:00 +0000</lastBuildDate><atom:link href="https://bonginn.github.io/index.xml" rel="self" type="application/rss+xml" /><item>
+        <lastBuildDate>Mon, 02 Sep 2024 00:00:00 +0000</lastBuildDate><atom:link href="https://bonginn.github.io/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>TIOJ 2070</title>
+        <link>https://bonginn.github.io/p/tioj-2070/</link>
+        <pubDate>Mon, 02 Sep 2024 00:00:00 +0000</pubDate>
+        
+        <guid>https://bonginn.github.io/p/tioj-2070/</guid>
+        <description>&lt;h1 id=&#34;description&#34;&gt;Description
+&lt;/h1&gt;&lt;p&gt;給你由小寫英文字母組成的字串$X$，請判斷是不是每一個前$K$個英文字母的子集的排列都是$X$的子序列。&lt;/p&gt;
+&lt;h1 id=&#34;observation-1&#34;&gt;Observation 1
+&lt;/h1&gt;&lt;p&gt;「前$k$個英文字母的『子集』的排列」都是子序列，其實就相當於要你判斷「是否前$k$個英文字母的的排列」都是子序列 &lt;/br&gt;（abc的所有排列都是，那a, b, c, ab, ac, bc, abc也當然都會是）。&lt;/p&gt;
+&lt;h1 id=&#34;observation-2&#34;&gt;Observation 2
+&lt;/h1&gt;&lt;p&gt;範圍：$K \le 20$ $\rightarrow$位元DP！&lt;/p&gt;
+&lt;h1 id=&#34;solution&#34;&gt;Solution
+&lt;/h1&gt;&lt;p&gt;定義dp[S] = 當狀態為S時，字串所需的最短長度能夠使得滿足題目的要求，當dp[S]為n+1時，表示狀態S無法滿足。 &lt;/br&gt;
+另外定義pos[i][j]表示在位置j往右出現字元i最近的位置。&lt;/br&gt;
+轉移式：$dp[i + (1 &amp;laquo; j)] = max(dp[i + (1 &amp;laquo; j)], pos[j][dp[i]])$ &lt;/br&gt;
+轉移過程中只要有出現了任何一個dp[S] = n+1就輸出$No$，否則最後輸出$Yes$。&lt;/p&gt;
+</description>
+        </item>
+        <item>
         <title>About</title>
         <link>https://bonginn.github.io/about/</link>
         <pubDate>Sat, 24 Aug 2024 00:00:00 +0000</pubDate>
