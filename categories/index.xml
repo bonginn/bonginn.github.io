@@ -6,54 +6,14 @@
         <description>Recent content in Categories on bonginn&#39;s blog</description>
         <generator>Hugo -- gohugo.io</generator>
         <language>en</language>
-        <copyright>Example Person</copyright>
-        <lastBuildDate>Mon, 02 Sep 2024 00:00:00 +0000</lastBuildDate><atom:link href="https://bonginn.github.io/categories/index.xml" rel="self" type="application/rss+xml" /><item>
+        <copyright>bonginn</copyright>
+        <lastBuildDate>Thu, 05 Sep 2024 00:00:00 +0000</lastBuildDate><atom:link href="https://bonginn.github.io/categories/index.xml" rel="self" type="application/rss+xml" /><item>
         <title>Solution</title>
         <link>https://bonginn.github.io/categories/solution/</link>
-        <pubDate>Mon, 02 Sep 2024 00:00:00 +0000</pubDate>
+        <pubDate>Thu, 05 Sep 2024 00:00:00 +0000</pubDate>
         
         <guid>https://bonginn.github.io/categories/solution/</guid>
-        <description></description>
-        </item>
-        <item>
-        <title>Test</title>
-        <link>https://bonginn.github.io/categories/test/</link>
-        <pubDate>Wed, 09 Sep 2020 00:00:00 +0000</pubDate>
-        
-        <guid>https://bonginn.github.io/categories/test/</guid>
-        <description>&lt;img src="https://bonginn.github.io/categories/test/hutomo-abrianto-l2jk-uxb1BY-unsplash.jpg" alt="Featured image of post Test" /&gt;</description>
-        </item>
-        <item>
-        <title>测试</title>
-        <link>https://bonginn.github.io/categories/%E6%B5%8B%E8%AF%95/</link>
-        <pubDate>Wed, 09 Sep 2020 00:00:00 +0000</pubDate>
-        
-        <guid>https://bonginn.github.io/categories/%E6%B5%8B%E8%AF%95/</guid>
-        <description></description>
-        </item>
-        <item>
-        <title>Syntax</title>
-        <link>https://bonginn.github.io/categories/syntax/</link>
-        <pubDate>Mon, 11 Mar 2019 00:00:00 +0000</pubDate>
-        
-        <guid>https://bonginn.github.io/categories/syntax/</guid>
-        <description></description>
-        </item>
-        <item>
-        <title>Themes</title>
-        <link>https://bonginn.github.io/categories/themes/</link>
-        <pubDate>Mon, 11 Mar 2019 00:00:00 +0000</pubDate>
-        
-        <guid>https://bonginn.github.io/categories/themes/</guid>
-        <description></description>
-        </item>
-        <item>
-        <title>Test With Whitespaces</title>
-        <link>https://bonginn.github.io/categories/test-with-whitespaces/</link>
-        <pubDate>Sat, 09 Mar 2019 00:00:00 +0000</pubDate>
-        
-        <guid>https://bonginn.github.io/categories/test-with-whitespaces/</guid>
-        <description></description>
+        <description>&lt;img src="https://bonginn.github.io/categories/solution/IMG_3109.JPG" alt="Featured image of post Solution" /&gt;</description>
         </item>
         
     </channel>
