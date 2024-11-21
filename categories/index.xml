@@ -2,18 +2,26 @@
 <rss version="2.0" xmlns:atom="http://www.w3.org/2005/Atom">
     <channel>
         <title>Categories on bonginn&#39;s blog</title>
-        <link>https://bonginn.github.io/categories/</link>
+        <link>http://localhost:50257/categories/</link>
         <description>Recent content in Categories on bonginn&#39;s blog</description>
         <generator>Hugo -- gohugo.io</generator>
         <language>en</language>
         <copyright>bonginn</copyright>
-        <lastBuildDate>Thu, 05 Sep 2024 00:00:00 +0000</lastBuildDate><atom:link href="https://bonginn.github.io/categories/index.xml" rel="self" type="application/rss+xml" /><item>
-        <title>Solution</title>
-        <link>https://bonginn.github.io/categories/solution/</link>
+        <lastBuildDate>Thu, 05 Sep 2024 00:00:00 +0000</lastBuildDate><atom:link href="http://localhost:50257/categories/index.xml" rel="self" type="application/rss+xml" /><item>
+        <title>Note</title>
+        <link>http://localhost:50257/categories/note/</link>
         <pubDate>Thu, 05 Sep 2024 00:00:00 +0000</pubDate>
         
-        <guid>https://bonginn.github.io/categories/solution/</guid>
-        <description>&lt;img src="https://bonginn.github.io/categories/solution/IMG_3109.JPG" alt="Featured image of post Solution" /&gt;</description>
+        <guid>http://localhost:50257/categories/note/</guid>
+        <description></description>
+        </item>
+        <item>
+        <title>Solution</title>
+        <link>http://localhost:50257/categories/solution/</link>
+        <pubDate>Thu, 05 Sep 2024 00:00:00 +0000</pubDate>
+        
+        <guid>http://localhost:50257/categories/solution/</guid>
+        <description>&lt;img src="http://localhost:50257/categories/solution/IMG_3109.JPG" alt="Featured image of post Solution" /&gt;</description>
         </item>
         
     </channel>

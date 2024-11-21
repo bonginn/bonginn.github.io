@@ -1,0 +1,608 @@
+<!DOCTYPE html>
+<html lang="en" dir="ltr">
+    <head><script src="/livereload.js?mindelay=10&amp;v=2&amp;port=50257&amp;path=livereload" data-no-instant defer></script><meta charset='utf-8'>
+<meta name='viewport' content='width=device-width, initial-scale=1'><meta name='description' content="Introduction WQS 二分搜又稱Aliens優化，是一個可以將二維的DP問題轉化成一個維度的優化技巧 複雜度可以從$O(N^2)$下降到$O(NlogC)$，但題目本身需要一些特性。 已知某函數$f(x)$為concave function，且我們有某種演算法可以在線性時間內求出$f(x) - px$的最大值及最大值發生的位置($x_0$)。 接下來，我們畫出$p=0 - 5$的Cases : 可以發現，$x_0$隨著$p$上升逐漸下降！ 因此若我們希望找到$f(x)$的最大值且$x&lt;=k$，我們可以對$p$做二分搜，找到最近的$p$使得$f(x) - px$的$x_0$$\\le k$，最後答案就會是演算法的輸出$+ pk$。 Informal Proof 至於為什麼當p越大，極值發生位置會越來越前面，簡單的證明如下： 當$f(x)$極值發生時的必要條件是$\\nabla f(x) = 0$ $\\nabla (f(x) - px) = \\nabla f(x) - \\nabla px = \\nabla f(x) - p = 0$ 已知$f(x)$是concave，因此 $\\nabla f(x)$ 遞減 因此當$p \\uparrow$，$x$必須越來越小。 然而，WQS真正困難的部分其實是證明$f(x)$是concave的，很多時候看到題目都會靠直覺猜他是concave，然後直接使用此性質（就像猜某個greedy方式會是最佳解）。 Intuition 我覺得WQS二分搜有一個很好的intuition： $f(x)$是某件事做了$x$次後得到的值，$p$就可以當作每做一次所需的成本，當成本($p$)越大，我們就不能做太多次操作（若我們的目標是maximize$f(x)$）。 因此！理所當然當p越大，$x_0$就會越小。 Application 直接來看一題很經典的WQS二分的題目AI-666 賺多少： 題目敘述：給定$n$天股票價格，求只能交易$k$次的情況下最多能賺多少錢？（假設最多同時只能持有一張股票） 這題有一個很簡單的dp解： $dp0[i][j]$表示在第$i$天，交易了$j$次且當下沒有股票的最佳解 $dp1[i][j]$表示在第$i$天，交易了$j$次且當下持有股票的最佳解 轉移式： $dp0[i][j] = max(dp0[i-1][j], dp1[i-1][j-1] + a[i])$ $dp1[i][j] = max(dp1[i-1][j], dp0[i-1][j] - a[i])$ 最後答案就是$dp0[n][k]$。 但很明顯，此做法的時間、空間複雜度為$O(n^2)$。 嘗試將問題轉換成「不限制交易次數」，我們可以發現轉移式就會變成： $dp0[i] = max(dp0[i-1], dp1[i-1] + a[i])$ $dp1[i] = max(dp1[i-1], dp0[i-1] - a[i])$ 其中，$dp0[i]$表示在第$i$天，當下沒有股票的最佳解，$dp1[i]$表示在第$i$天，當下持有股票的最佳解。 接著，我們嘗試將每次交易都增加一個$p$元的手續費，此時轉移式變成： $dp0[i] = max(dp0[i-1], dp1[i-1] + a[i])$ $dp1[i] = max(dp1[i-1], dp0[i-1] - a[i] - p)$ 我們可以在$O(n)$的時間解決這個「有手續費且沒有交易次數限制」的問題。 最後，我們可以對$p$做二分搜找到某個$p$，使得發生最大值時的交易次數$\\leq k$ 最終答案就會是此演算法的輸出$+ pk$。 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 #include &lt;bits/stdc++.">
+<title>WQS 二分搜</title>
+
+<link rel='canonical' href='http://localhost:50257/p/wqs-%E4%BA%8C%E5%88%86%E6%90%9C/'>
+
+<link rel="stylesheet" href="/scss/style.min.02708f4b23a3b39aae3e7649bf3aae28ec48adf4c6888ac541597d0b9b35efd4.css"><meta property='og:title' content="WQS 二分搜">
+<meta property='og:description' content="Introduction WQS 二分搜又稱Aliens優化，是一個可以將二維的DP問題轉化成一個維度的優化技巧 複雜度可以從$O(N^2)$下降到$O(NlogC)$，但題目本身需要一些特性。 已知某函數$f(x)$為concave function，且我們有某種演算法可以在線性時間內求出$f(x) - px$的最大值及最大值發生的位置($x_0$)。 接下來，我們畫出$p=0 - 5$的Cases : 可以發現，$x_0$隨著$p$上升逐漸下降！ 因此若我們希望找到$f(x)$的最大值且$x&lt;=k$，我們可以對$p$做二分搜，找到最近的$p$使得$f(x) - px$的$x_0$$\\le k$，最後答案就會是演算法的輸出$+ pk$。 Informal Proof 至於為什麼當p越大，極值發生位置會越來越前面，簡單的證明如下： 當$f(x)$極值發生時的必要條件是$\\nabla f(x) = 0$ $\\nabla (f(x) - px) = \\nabla f(x) - \\nabla px = \\nabla f(x) - p = 0$ 已知$f(x)$是concave，因此 $\\nabla f(x)$ 遞減 因此當$p \\uparrow$，$x$必須越來越小。 然而，WQS真正困難的部分其實是證明$f(x)$是concave的，很多時候看到題目都會靠直覺猜他是concave，然後直接使用此性質（就像猜某個greedy方式會是最佳解）。 Intuition 我覺得WQS二分搜有一個很好的intuition： $f(x)$是某件事做了$x$次後得到的值，$p$就可以當作每做一次所需的成本，當成本($p$)越大，我們就不能做太多次操作（若我們的目標是maximize$f(x)$）。 因此！理所當然當p越大，$x_0$就會越小。 Application 直接來看一題很經典的WQS二分的題目AI-666 賺多少： 題目敘述：給定$n$天股票價格，求只能交易$k$次的情況下最多能賺多少錢？（假設最多同時只能持有一張股票） 這題有一個很簡單的dp解： $dp0[i][j]$表示在第$i$天，交易了$j$次且當下沒有股票的最佳解 $dp1[i][j]$表示在第$i$天，交易了$j$次且當下持有股票的最佳解 轉移式： $dp0[i][j] = max(dp0[i-1][j], dp1[i-1][j-1] + a[i])$ $dp1[i][j] = max(dp1[i-1][j], dp0[i-1][j] - a[i])$ 最後答案就是$dp0[n][k]$。 但很明顯，此做法的時間、空間複雜度為$O(n^2)$。 嘗試將問題轉換成「不限制交易次數」，我們可以發現轉移式就會變成： $dp0[i] = max(dp0[i-1], dp1[i-1] + a[i])$ $dp1[i] = max(dp1[i-1], dp0[i-1] - a[i])$ 其中，$dp0[i]$表示在第$i$天，當下沒有股票的最佳解，$dp1[i]$表示在第$i$天，當下持有股票的最佳解。 接著，我們嘗試將每次交易都增加一個$p$元的手續費，此時轉移式變成： $dp0[i] = max(dp0[i-1], dp1[i-1] + a[i])$ $dp1[i] = max(dp1[i-1], dp0[i-1] - a[i] - p)$ 我們可以在$O(n)$的時間解決這個「有手續費且沒有交易次數限制」的問題。 最後，我們可以對$p$做二分搜找到某個$p$，使得發生最大值時的交易次數$\\leq k$ 最終答案就會是此演算法的輸出$+ pk$。 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 #include &lt;bits/stdc++.">
+<meta property='og:url' content='http://localhost:50257/p/wqs-%E4%BA%8C%E5%88%86%E6%90%9C/'>
+<meta property='og:site_name' content='bonginn&#39;s blog'>
+<meta property='og:type' content='article'><meta property='article:section' content='Post' /><meta property='article:tag' content='code' /><meta property='article:published_time' content='2024-09-05T00:00:00&#43;00:00'/><meta property='article:modified_time' content='2024-09-05T00:00:00&#43;00:00'/>
+<meta name="twitter:title" content="WQS 二分搜">
+<meta name="twitter:description" content="Introduction WQS 二分搜又稱Aliens優化，是一個可以將二維的DP問題轉化成一個維度的優化技巧 複雜度可以從$O(N^2)$下降到$O(NlogC)$，但題目本身需要一些特性。 已知某函數$f(x)$為concave function，且我們有某種演算法可以在線性時間內求出$f(x) - px$的最大值及最大值發生的位置($x_0$)。 接下來，我們畫出$p=0 - 5$的Cases : 可以發現，$x_0$隨著$p$上升逐漸下降！ 因此若我們希望找到$f(x)$的最大值且$x&lt;=k$，我們可以對$p$做二分搜，找到最近的$p$使得$f(x) - px$的$x_0$$\\le k$，最後答案就會是演算法的輸出$+ pk$。 Informal Proof 至於為什麼當p越大，極值發生位置會越來越前面，簡單的證明如下： 當$f(x)$極值發生時的必要條件是$\\nabla f(x) = 0$ $\\nabla (f(x) - px) = \\nabla f(x) - \\nabla px = \\nabla f(x) - p = 0$ 已知$f(x)$是concave，因此 $\\nabla f(x)$ 遞減 因此當$p \\uparrow$，$x$必須越來越小。 然而，WQS真正困難的部分其實是證明$f(x)$是concave的，很多時候看到題目都會靠直覺猜他是concave，然後直接使用此性質（就像猜某個greedy方式會是最佳解）。 Intuition 我覺得WQS二分搜有一個很好的intuition： $f(x)$是某件事做了$x$次後得到的值，$p$就可以當作每做一次所需的成本，當成本($p$)越大，我們就不能做太多次操作（若我們的目標是maximize$f(x)$）。 因此！理所當然當p越大，$x_0$就會越小。 Application 直接來看一題很經典的WQS二分的題目AI-666 賺多少： 題目敘述：給定$n$天股票價格，求只能交易$k$次的情況下最多能賺多少錢？（假設最多同時只能持有一張股票） 這題有一個很簡單的dp解： $dp0[i][j]$表示在第$i$天，交易了$j$次且當下沒有股票的最佳解 $dp1[i][j]$表示在第$i$天，交易了$j$次且當下持有股票的最佳解 轉移式： $dp0[i][j] = max(dp0[i-1][j], dp1[i-1][j-1] + a[i])$ $dp1[i][j] = max(dp1[i-1][j], dp0[i-1][j] - a[i])$ 最後答案就是$dp0[n][k]$。 但很明顯，此做法的時間、空間複雜度為$O(n^2)$。 嘗試將問題轉換成「不限制交易次數」，我們可以發現轉移式就會變成： $dp0[i] = max(dp0[i-1], dp1[i-1] + a[i])$ $dp1[i] = max(dp1[i-1], dp0[i-1] - a[i])$ 其中，$dp0[i]$表示在第$i$天，當下沒有股票的最佳解，$dp1[i]$表示在第$i$天，當下持有股票的最佳解。 接著，我們嘗試將每次交易都增加一個$p$元的手續費，此時轉移式變成： $dp0[i] = max(dp0[i-1], dp1[i-1] + a[i])$ $dp1[i] = max(dp1[i-1], dp0[i-1] - a[i] - p)$ 我們可以在$O(n)$的時間解決這個「有手續費且沒有交易次數限制」的問題。 最後，我們可以對$p$做二分搜找到某個$p$，使得發生最大值時的交易次數$\\leq k$ 最終答案就會是此演算法的輸出$+ pk$。 1 2 3 4 5 6 7 8 9 10 11 12 13 14 15 16 17 18 19 20 21 22 23 24 25 26 27 28 29 30 31 32 33 34 35 36 37 38 39 40 41 42 43 44 45 46 47 48 49 50 51 52 53 54 55 56 57 58 59 60 61 62 63 64 65 66 67 68 69 70 71 72 #include &lt;bits/stdc++.">
+  
+
+
+    </head>
+    <body class="
+    article-page
+    ">
+    <script>
+        (function() {
+            const colorSchemeKey = 'StackColorScheme';
+            if(!localStorage.getItem(colorSchemeKey)){
+                localStorage.setItem(colorSchemeKey, "auto");
+            }
+        })();
+    </script><script>
+    (function() {
+        const colorSchemeKey = 'StackColorScheme';
+        const colorSchemeItem = localStorage.getItem(colorSchemeKey);
+        const supportDarkMode = window.matchMedia('(prefers-color-scheme: dark)').matches === true;
+
+        if (colorSchemeItem == 'dark' || colorSchemeItem === 'auto' && supportDarkMode) {
+            
+
+            document.documentElement.dataset.scheme = 'dark';
+        } else {
+            document.documentElement.dataset.scheme = 'light';
+        }
+    })();
+</script>
+<div class="container main-container flex on-phone--column extended">
+
+
+        <div id="article-toolbar" style="position: sticky;top: 5px;z-index: 1000;">
+            <a href="/" class="back-home">
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-chevron-left" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <polyline points="15 6 9 12 15 18" />
+</svg>
+
+
+
+                <span>Back</span>
+            </a>
+        </div>
+    
+
+    <aside class="sidebar right-sidebar sticky">
+        
+            
+                
+    <section class="widget archives">
+        <div class="widget-icon">
+            <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-hash" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <line x1="5" y1="9" x2="19" y2="9" />
+  <line x1="5" y1="15" x2="19" y2="15" />
+  <line x1="11" y1="4" x2="7" y2="20" />
+  <line x1="17" y1="4" x2="13" y2="20" />
+</svg>
+
+
+
+        </div>
+        <h2 class="widget-title section-title">Table of contents</h2>
+        
+        <div class="widget--toc">
+            <nav id="TableOfContents">
+  <ol>
+    <li><a href="#introduction">Introduction</a></li>
+    <li><a href="#informal-proof">Informal Proof</a></li>
+    <li><a href="#intuition">Intuition</a></li>
+    <li><a href="#application">Application</a></li>
+    <li><a href="#related-problems">Related Problems</a></li>
+  </ol>
+</nav>
+        </div>
+    </section>
+
+            
+        
+    </aside>
+
+
+            <main class="main full-width">
+    <article class="main-article">
+    <header class="article-header">
+
+    <div class="article-details">
+    
+    <header class="article-category">
+        
+            <a href="/categories/note/" >
+                Note
+            </a>
+        
+    </header>
+    
+
+    <div class="article-title-wrapper">
+        <h2 class="article-title">
+            <a href="/p/wqs-%E4%BA%8C%E5%88%86%E6%90%9C/">WQS 二分搜</a>
+        </h2>
+    
+        
+    </div>
+
+    
+    
+    
+    
+    <footer class="article-time">
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-calendar-time" width="56" height="56" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <path d="M11.795 21h-6.795a2 2 0 0 1 -2 -2v-12a2 2 0 0 1 2 -2h12a2 2 0 0 1 2 2v4" />
+  <circle cx="18" cy="18" r="4" />
+  <path d="M15 3v4" />
+  <path d="M7 3v4" />
+  <path d="M3 11h16" />
+  <path d="M18 16.496v1.504l1 1" />
+</svg>
+                <time class="article-time--published">Sep 05, 2024</time>
+            </div>
+        
+
+        
+            <div>
+                <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-clock" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <polyline points="12 7 12 12 15 15" />
+</svg>
+
+
+
+                <time class="article-time--reading">
+                    2 minute read
+                </time>
+            </div>
+        
+    </footer>
+    
+
+    
+</div>
+
+</header>
+
+    <section class="article-content">
+    
+    
+    <h2 id="introduction">Introduction
+</h2><p>WQS 二分搜又稱Aliens優化，是一個可以將二維的DP問題轉化成一個維度的優化技巧 </br>
+複雜度可以從$O(N^2)$下降到$O(NlogC)$，但題目本身需要一些特性。 </br>
+已知某函數$f(x)$為concave function，且我們有某種演算法可以在線性時間內求出$f(x) - px$的最大值及最大值發生的位置($x_0$)。 </br>
+接下來，我們畫出$p=0 - 5$的Cases :
+<img src="/p/wqs-%E4%BA%8C%E5%88%86%E6%90%9C/Chart.png"
+	width="1878"
+	height="1063"
+	srcset="/p/wqs-%E4%BA%8C%E5%88%86%E6%90%9C/Chart_hu17271324776428220361.png 480w, /p/wqs-%E4%BA%8C%E5%88%86%E6%90%9C/Chart_hu3651556510686232853.png 1024w"
+	loading="lazy"
+	
+		alt="Credit : 4o"
+	
+	
+		class="gallery-image" 
+		data-flex-grow="176"
+		data-flex-basis="424px"
+	
+> </br>
+可以發現，$x_0$隨著$p$上升逐漸下降！</br>
+因此若我們希望找到$f(x)$的最大值且$x&lt;=k$，我們可以對$p$做二分搜，找到最近的$p$使得$f(x) - px$的$x_0$$\le k$，最後答案就會是演算法的輸出$+ pk$。</p>
+<h2 id="informal-proof">Informal Proof
+</h2><p>至於為什麼當p越大，極值發生位置會越來越前面，簡單的證明如下： </br>
+當$f(x)$極值發生時的必要條件是$\nabla f(x) = 0$ </br>
+$\nabla (f(x) - px) = \nabla f(x) - \nabla px = \nabla f(x) - p = 0$ </br>
+已知$f(x)$是concave，因此 $\nabla f(x)$ 遞減 </br>
+因此當$p \uparrow$，$x$必須越來越小。 </br>
+然而，WQS真正困難的部分其實是證明$f(x)$是concave的，很多時候看到題目都會靠直覺猜他是concave，然後直接使用此性質（就像猜某個greedy方式會是最佳解）。</p>
+<h2 id="intuition">Intuition
+</h2><p>我覺得WQS二分搜有一個很好的intuition：</br>
+$f(x)$是某件事做了$x$次後得到的值，$p$就可以當作每做一次所需的成本，當成本($p$)越大，我們就不能做太多次操作（若我們的目標是maximize$f(x)$）。 </br>
+因此！理所當然當p越大，$x_0$就會越小。</p>
+<h2 id="application">Application
+</h2><p>直接來看一題很經典的WQS二分的題目<a class="link" href="https://tioj.ck.tp.edu.tw/problems/2039"  target="_blank" rel="noopener"
+    >AI-666 賺多少</a>： </br>
+題目敘述：給定$n$天股票價格，求只能交易$k$次的情況下最多能賺多少錢？（假設最多同時只能持有一張股票）</br>
+這題有一個很簡單的dp解：</br>
+$dp0[i][j]$表示在第$i$天，交易了$j$次且當下沒有股票的最佳解 </br>
+$dp1[i][j]$表示在第$i$天，交易了$j$次且當下持有股票的最佳解 </br>
+轉移式：</br>
+$dp0[i][j] = max(dp0[i-1][j], dp1[i-1][j-1] + a[i])$ </br>
+$dp1[i][j] = max(dp1[i-1][j], dp0[i-1][j] - a[i])$ </br>
+最後答案就是$dp0[n][k]$。 </br>
+但很明顯，此做法的時間、空間複雜度為$O(n^2)$。 </br>
+嘗試將問題轉換成「不限制交易次數」，我們可以發現轉移式就會變成： </br>
+$dp0[i] = max(dp0[i-1], dp1[i-1] + a[i])$ </br>
+$dp1[i] = max(dp1[i-1], dp0[i-1] - a[i])$ </br>
+其中，$dp0[i]$表示在第$i$天，當下沒有股票的最佳解，$dp1[i]$表示在第$i$天，當下持有股票的最佳解。 </br>
+接著，我們嘗試將每次交易都增加一個$p$元的手續費，此時轉移式變成： </br>
+$dp0[i] = max(dp0[i-1], dp1[i-1] + a[i])$ </br>
+$dp1[i] = max(dp1[i-1], dp0[i-1] - a[i] - p)$ </br>
+我們可以在$O(n)$的時間解決這個「有手續費且沒有交易次數限制」的問題。 </br>
+最後，我們可以對$p$做二分搜找到某個$p$，使得發生最大值時的交易次數$\leq k$ </br>
+最終答案就會是此演算法的輸出$+ pk$。 </br></p>
+<div class="highlight"><div class="chroma">
+<table class="lntable"><tr><td class="lntd">
+<pre tabindex="0" class="chroma"><code><span class="lnt"> 1
+</span><span class="lnt"> 2
+</span><span class="lnt"> 3
+</span><span class="lnt"> 4
+</span><span class="lnt"> 5
+</span><span class="lnt"> 6
+</span><span class="lnt"> 7
+</span><span class="lnt"> 8
+</span><span class="lnt"> 9
+</span><span class="lnt">10
+</span><span class="lnt">11
+</span><span class="lnt">12
+</span><span class="lnt">13
+</span><span class="lnt">14
+</span><span class="lnt">15
+</span><span class="lnt">16
+</span><span class="lnt">17
+</span><span class="lnt">18
+</span><span class="lnt">19
+</span><span class="lnt">20
+</span><span class="lnt">21
+</span><span class="lnt">22
+</span><span class="lnt">23
+</span><span class="lnt">24
+</span><span class="lnt">25
+</span><span class="lnt">26
+</span><span class="lnt">27
+</span><span class="lnt">28
+</span><span class="lnt">29
+</span><span class="lnt">30
+</span><span class="lnt">31
+</span><span class="lnt">32
+</span><span class="lnt">33
+</span><span class="lnt">34
+</span><span class="lnt">35
+</span><span class="lnt">36
+</span><span class="lnt">37
+</span><span class="lnt">38
+</span><span class="lnt">39
+</span><span class="lnt">40
+</span><span class="lnt">41
+</span><span class="lnt">42
+</span><span class="lnt">43
+</span><span class="lnt">44
+</span><span class="lnt">45
+</span><span class="lnt">46
+</span><span class="lnt">47
+</span><span class="lnt">48
+</span><span class="lnt">49
+</span><span class="lnt">50
+</span><span class="lnt">51
+</span><span class="lnt">52
+</span><span class="lnt">53
+</span><span class="lnt">54
+</span><span class="lnt">55
+</span><span class="lnt">56
+</span><span class="lnt">57
+</span><span class="lnt">58
+</span><span class="lnt">59
+</span><span class="lnt">60
+</span><span class="lnt">61
+</span><span class="lnt">62
+</span><span class="lnt">63
+</span><span class="lnt">64
+</span><span class="lnt">65
+</span><span class="lnt">66
+</span><span class="lnt">67
+</span><span class="lnt">68
+</span><span class="lnt">69
+</span><span class="lnt">70
+</span><span class="lnt">71
+</span><span class="lnt">72
+</span></code></pre></td>
+<td class="lntd">
+<pre tabindex="0" class="chroma"><code class="language-cpp" data-lang="cpp"><span class="line"><span class="cl"><span class="cp">#include</span> <span class="cpf">&lt;bits/stdc++.h&gt;</span><span class="cp">
+</span></span></span><span class="line"><span class="cl"><span class="cp">#define int long long
+</span></span></span><span class="line"><span class="cl"><span class="cp">#define ll long long
+</span></span></span><span class="line"><span class="cl"><span class="cp">#define pb push_back
+</span></span></span><span class="line"><span class="cl"><span class="cp">#define sz(x) (x).size()
+</span></span></span><span class="line"><span class="cl"><span class="cp">#define all(x) (x).begin(), (x).end()
+</span></span></span><span class="line"><span class="cl"><span class="cp">#define fastio cin.tie(0); ios_base::sync_with_stdio(false);
+</span></span></span><span class="line"><span class="cl"><span class="cp"></span><span class="k">using</span> <span class="k">namespace</span> <span class="n">std</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="k">const</span> <span class="kt">int</span> <span class="n">maxn</span> <span class="o">=</span> <span class="mf">2e6</span><span class="o">+</span><span class="mi">5</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="k">const</span> <span class="kt">int</span> <span class="n">mod</span> <span class="o">=</span> <span class="mf">1e9</span><span class="o">+</span><span class="mi">7</span><span class="p">;</span> <span class="c1">// 998244353;
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span><span class="k">const</span> <span class="n">ll</span> <span class="n">inf</span> <span class="o">=</span> <span class="mi">1ll</span> <span class="o">&lt;&lt;</span> <span class="mi">61</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="k">typedef</span> <span class="n">pair</span><span class="o">&lt;</span><span class="kt">int</span><span class="p">,</span><span class="kt">int</span><span class="o">&gt;</span> <span class="n">P</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="kt">int</span> <span class="n">n</span><span class="p">,</span> <span class="n">k</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="kt">int</span> <span class="n">a</span><span class="p">[</span><span class="n">maxn</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl"><span class="n">P</span> <span class="n">dp0</span><span class="p">[</span><span class="n">maxn</span><span class="p">],</span> <span class="n">dp1</span><span class="p">[</span><span class="n">maxn</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kt">void</span> <span class="nf">init</span><span class="p">(){</span>
+</span></span><span class="line"><span class="cl">    <span class="n">dp0</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">P</span><span class="p">(</span><span class="mi">0</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="n">dp1</span><span class="p">[</span><span class="mi">0</span><span class="p">]</span> <span class="o">=</span> <span class="n">P</span><span class="p">(</span><span class="o">-</span><span class="n">inf</span><span class="p">,</span> <span class="mi">0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="n">P</span> <span class="nf">cal</span><span class="p">(</span><span class="kt">int</span> <span class="n">p</span><span class="p">){</span>
+</span></span><span class="line"><span class="cl">    <span class="n">init</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="n">P</span> <span class="n">res</span> <span class="o">=</span> <span class="p">{</span><span class="mi">0</span><span class="p">,</span> <span class="n">inf</span><span class="p">};</span>
+</span></span><span class="line"><span class="cl">    <span class="k">for</span><span class="p">(</span><span class="kt">int</span> <span class="n">i</span><span class="o">=</span><span class="mi">1</span><span class="p">;</span><span class="n">i</span><span class="o">&lt;=</span><span class="n">n</span><span class="p">;</span><span class="n">i</span><span class="o">++</span><span class="p">){</span>
+</span></span><span class="line"><span class="cl">        <span class="c1">// 沒股票
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>        <span class="k">if</span><span class="p">(</span><span class="n">dp0</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">P</span><span class="p">(</span><span class="n">dp1</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">].</span><span class="n">first</span> <span class="o">+</span> <span class="n">a</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="n">p</span><span class="p">,</span> <span class="n">dp1</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">].</span><span class="n">second</span> <span class="o">-</span> <span class="mi">1</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">            <span class="n">dp0</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">dp0</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">        <span class="k">else</span>
+</span></span><span class="line"><span class="cl">            <span class="n">dp0</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">P</span><span class="p">(</span><span class="n">dp1</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">].</span><span class="n">first</span> <span class="o">+</span> <span class="n">a</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">-</span> <span class="n">p</span><span class="p">,</span> <span class="n">dp1</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">].</span><span class="n">second</span> <span class="o">-</span> <span class="mi">1</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="c1">// 有股票
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>        <span class="k">if</span><span class="p">(</span><span class="n">dp1</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">]</span> <span class="o">&gt;</span> <span class="n">P</span><span class="p">(</span><span class="n">dp0</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">].</span><span class="n">first</span> <span class="o">-</span> <span class="n">a</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">dp0</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">].</span><span class="n">second</span><span class="p">))</span>
+</span></span><span class="line"><span class="cl">            <span class="n">dp1</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">dp1</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">        <span class="k">else</span>
+</span></span><span class="line"><span class="cl">            <span class="n">dp1</span><span class="p">[</span><span class="n">i</span><span class="p">]</span> <span class="o">=</span> <span class="n">P</span><span class="p">(</span><span class="n">dp0</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">].</span><span class="n">first</span> <span class="o">-</span> <span class="n">a</span><span class="p">[</span><span class="n">i</span><span class="p">],</span> <span class="n">dp0</span><span class="p">[</span><span class="n">i</span><span class="o">-</span><span class="mi">1</span><span class="p">].</span><span class="n">second</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="n">res</span> <span class="o">=</span> <span class="p">(</span><span class="n">res</span><span class="p">,</span> <span class="n">dp0</span><span class="p">[</span><span class="n">i</span><span class="p">]);</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">return</span> <span class="n">res</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kt">void</span> <span class="nf">solve</span><span class="p">(){</span>
+</span></span><span class="line"><span class="cl">    <span class="n">cin</span> <span class="o">&gt;&gt;</span> <span class="n">n</span> <span class="o">&gt;&gt;</span> <span class="n">k</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">for</span><span class="p">(</span><span class="kt">int</span> <span class="n">i</span><span class="o">=</span><span class="mi">1</span><span class="p">;</span><span class="n">i</span><span class="o">&lt;=</span><span class="n">n</span><span class="p">;</span><span class="n">i</span><span class="o">++</span><span class="p">)</span>
+</span></span><span class="line"><span class="cl">        <span class="n">cin</span> <span class="o">&gt;&gt;</span> <span class="n">a</span><span class="p">[</span><span class="n">i</span><span class="p">];</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">int</span> <span class="n">l</span> <span class="o">=</span> <span class="mi">0</span><span class="p">,</span> <span class="n">r</span> <span class="o">=</span> <span class="mf">1e7</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="n">P</span> <span class="n">res</span> <span class="o">=</span> <span class="n">cal</span><span class="p">(</span><span class="mi">0</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">int</span> <span class="n">pp</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="k">if</span><span class="p">(</span><span class="o">-</span><span class="n">res</span><span class="p">.</span><span class="n">second</span> <span class="o">&lt;=</span> <span class="n">k</span><span class="p">){</span>
+</span></span><span class="line"><span class="cl">        <span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="n">res</span><span class="p">.</span><span class="n">first</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="k">return</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="k">while</span><span class="p">(</span><span class="n">l</span> <span class="o">&lt;=</span> <span class="n">r</span><span class="p">){</span>
+</span></span><span class="line"><span class="cl">        <span class="kt">int</span> <span class="n">mid</span> <span class="o">=</span> <span class="p">(</span><span class="n">l</span> <span class="o">+</span> <span class="n">r</span><span class="p">)</span> <span class="o">/</span> <span class="mi">2</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="n">res</span> <span class="o">=</span> <span class="n">cal</span><span class="p">(</span><span class="n">mid</span><span class="p">);</span>
+</span></span><span class="line"><span class="cl">        <span class="k">if</span><span class="p">(</span><span class="o">-</span><span class="n">res</span><span class="p">.</span><span class="n">second</span> <span class="o">&gt;</span> <span class="n">k</span><span class="p">){</span>
+</span></span><span class="line"><span class="cl">            <span class="n">pp</span> <span class="o">=</span> <span class="n">mid</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">            <span class="n">l</span> <span class="o">=</span> <span class="n">mid</span> <span class="o">+</span> <span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span> 
+</span></span><span class="line"><span class="cl">        <span class="k">else</span><span class="p">{</span>
+</span></span><span class="line"><span class="cl">            <span class="n">r</span> <span class="o">=</span> <span class="n">mid</span> <span class="o">-</span> <span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">        <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl">    <span class="n">cout</span> <span class="o">&lt;&lt;</span> <span class="n">cal</span><span class="p">(</span><span class="n">pp</span><span class="o">+</span><span class="mi">1</span><span class="p">).</span><span class="n">first</span> <span class="o">+</span> <span class="p">(</span><span class="n">pp</span><span class="o">+</span><span class="mi">1</span><span class="p">)</span> <span class="o">*</span> <span class="n">k</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span><span class="line"><span class="cl">
+</span></span><span class="line"><span class="cl"><span class="kt">signed</span> <span class="nf">main</span><span class="p">(){</span><span class="n">fastio</span>
+</span></span><span class="line"><span class="cl">    <span class="kt">int</span> <span class="n">T</span> <span class="o">=</span> <span class="mi">1</span><span class="p">;</span>
+</span></span><span class="line"><span class="cl">    <span class="c1">//cin &gt;&gt; T;
+</span></span></span><span class="line"><span class="cl"><span class="c1"></span>    <span class="k">while</span><span class="p">(</span><span class="n">T</span><span class="o">--</span><span class="p">){</span>
+</span></span><span class="line"><span class="cl">        <span class="n">solve</span><span class="p">();</span>
+</span></span><span class="line"><span class="cl">    <span class="p">}</span>
+</span></span><span class="line"><span class="cl"><span class="p">}</span>
+</span></span></code></pre></td></tr></table>
+</div>
+</div><p>二分搜的過程其實有不少細節，請未來的我自行體會。 </br>
+但就結論而言，一個簡單且可以避免錯誤的方法是「找最大的$p$使得最後的交易次數不滿足題目限制」</br>
+最後我們所需$p$就會是$p+1$(如果是離散的話)。 </br></p>
+<h2 id="related-problems">Related Problems
+</h2><p><a class="link" href="https://zerojudge.tw/ShowProblem?problemid=h926"  target="_blank" rel="noopener"
+    > 美食博覽會 (k 值加大版)</a> </br>
+<a class="link" href="https://cses.fi/problemset/task/2086"  target="_blank" rel="noopener"
+    >Subarray Squares</a> </br>
+<a class="link" href="https://www.luogu.com.cn/problem/P2619"  target="_blank" rel="noopener"
+    >Tree I</a> </br>
+<a class="link" href="https://codeforces.com/contest/958/problem/E2"  target="_blank" rel="noopener"
+    >E2. Guard Duty (medium)</a> </br>
+<a class="link" href="https://codeforces.com/contest/1279/problem/F"  target="_blank" rel="noopener"
+    >F. New Year and Handle Change</a> </br>
+<a class="link" href="https://codeforces.com/contest/739/problem/E"  target="_blank" rel="noopener"
+    >E. Gosha is hunting</a></p>
+
+</section>
+
+
+    <footer class="article-footer">
+    
+    <section class="article-tags">
+        
+            <a href="/tags/code/">Code</a>
+        
+    </section>
+
+
+    
+    <section class="article-copyright">
+        <svg xmlns="http://www.w3.org/2000/svg" class="icon icon-tabler icon-tabler-copyright" width="24" height="24" viewBox="0 0 24 24" stroke-width="2" stroke="currentColor" fill="none" stroke-linecap="round" stroke-linejoin="round">
+  <path stroke="none" d="M0 0h24v24H0z"/>
+  <circle cx="12" cy="12" r="9" />
+  <path d="M14.5 9a3.5 4 0 1 0 0 6" />
+</svg>
+
+
+
+        <span>Licensed under CC BY-NC-SA 4.0</span>
+    </section>
+    </footer>
+
+
+    
+        <link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.css"integrity="sha384-n8MVd4RsNIU0tAv4ct0nTaAbDJwPJzDEaqSD1odI&#43;WdtXRGWt2kTvGFasHpSy3SV"crossorigin="anonymous"
+            ><script 
+                src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/katex.min.js"integrity="sha384-XjKyOOlGwcjNTAIQHIpgOno0Hl1YQqzUOEleOLALmuqehneUG&#43;vnGctmUb0ZY0l8"crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/katex@0.16.9/dist/contrib/auto-render.min.js"integrity="sha384-&#43;VBxd3r6XgURycqtZ117nYw44OOcIax56Z4dCRWbxyPt0Koah1uHoK0o4&#43;/RRE05"crossorigin="anonymous"
+                defer
+                >
+            </script><script>
+    window.addEventListener("DOMContentLoaded", () => {
+        renderMathInElement(document.body, {
+            delimiters: [
+                { left: "$$", right: "$$", display: true },
+                { left: "$", right: "$", display: false },
+                { left: "\\(", right: "\\)", display: false },
+                { left: "\\[", right: "\\]", display: true }
+            ],
+            ignoredClasses: ["gist"]
+        });})
+</script>
+    
+</article>
+
+    
+
+    
+
+     
+    
+        
+    <div class="disqus-container">
+    <div id="disqus_thread"></div>
+<script>
+    window.disqus_config = function () {
+    
+    
+    
+    };
+    (function() {
+        if (["localhost", "127.0.0.1"].indexOf(window.location.hostname) != -1) {
+            document.getElementById('disqus_thread').innerHTML = 'Disqus comments not available by default when the website is previewed locally.';
+            return;
+        }
+        var d = document, s = d.createElement('script'); s.async = true;
+        s.src = '//' + "bonginn" + '.disqus.com/embed.js';
+        s.setAttribute('data-timestamp', +new Date());
+        (d.head || d.body).appendChild(s);
+    })();
+</script>
+<noscript>Please enable JavaScript to view the <a href="https://disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript>
+<a href="https://disqus.com" class="dsq-brlink">comments powered by <span class="logo-disqus">Disqus</span></a>
+</div>
+
+<style>
+    .disqus-container {
+        background-color: var(--card-background);
+        border-radius: var(--card-border-radius);
+        box-shadow: var(--shadow-l1);
+        padding: var(--card-padding);
+    }
+</style>
+
+<script>
+    window.addEventListener('onColorSchemeChange', (e) => {
+        if (typeof DISQUS == 'object') {
+            DISQUS.reset({
+                reload: true
+            });
+        }
+    })
+</script>
+
+    
+
+    <footer class="site-footer">
+    <section class="copyright">
+        &copy; 
+        
+            2020 - 
+        
+        2024 bonginn
+    </section>
+    
+    <section class="powerby">
+        Built with <a href="https://gohugo.io/" target="_blank" rel="noopener">Hugo</a> <br />
+        Theme <b><a href="https://github.com/CaiJimmy/hugo-theme-stack" target="_blank" rel="noopener" data-version="3.26.0">Stack</a></b> designed by <a href="https://jimmycai.com" target="_blank" rel="noopener">Jimmy</a>
+    </section>
+</footer>
+
+
+    
+<div class="pswp" tabindex="-1" role="dialog" aria-hidden="true">
+
+    
+    <div class="pswp__bg"></div>
+
+    
+    <div class="pswp__scroll-wrap">
+
+        
+        <div class="pswp__container">
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+            <div class="pswp__item"></div>
+        </div>
+
+        
+        <div class="pswp__ui pswp__ui--hidden">
+
+            <div class="pswp__top-bar">
+
+                
+
+                <div class="pswp__counter"></div>
+
+                <button class="pswp__button pswp__button--close" title="Close (Esc)"></button>
+
+                <button class="pswp__button pswp__button--share" title="Share"></button>
+
+                <button class="pswp__button pswp__button--fs" title="Toggle fullscreen"></button>
+
+                <button class="pswp__button pswp__button--zoom" title="Zoom in/out"></button>
+
+                
+                
+                <div class="pswp__preloader">
+                    <div class="pswp__preloader__icn">
+                        <div class="pswp__preloader__cut">
+                            <div class="pswp__preloader__donut"></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="pswp__share-modal pswp__share-modal--hidden pswp__single-tap">
+                <div class="pswp__share-tooltip"></div>
+            </div>
+
+            <button class="pswp__button pswp__button--arrow--left" title="Previous (arrow left)">
+            </button>
+
+            <button class="pswp__button pswp__button--arrow--right" title="Next (arrow right)">
+            </button>
+
+            <div class="pswp__caption">
+                <div class="pswp__caption__center"></div>
+            </div>
+
+        </div>
+
+    </div>
+
+</div><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.js"integrity="sha256-ePwmChbbvXbsO02lbM3HoHbSHTHFAeChekF1xKJdleo="crossorigin="anonymous"
+                defer
+                >
+            </script><script 
+                src="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe-ui-default.min.js"integrity="sha256-UKkzOn/w1mBxRmLLGrSeyB4e1xbrp4xylgAWb3M42pU="crossorigin="anonymous"
+                defer
+                >
+            </script><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/default-skin/default-skin.min.css"crossorigin="anonymous"
+            ><link 
+                rel="stylesheet" 
+                href="https://cdn.jsdelivr.net/npm/photoswipe@4.1.3/dist/photoswipe.min.css"crossorigin="anonymous"
+            >
+
+            </main>
+        </div>
+        <script 
+                src="https://cdn.jsdelivr.net/npm/node-vibrant@3.1.6/dist/vibrant.min.js"integrity="sha256-awcR2jno4kI5X0zL8ex0vi2z&#43;KMkF24hUW8WePSA9HM="crossorigin="anonymous"
+                
+                >
+            </script><script type="text/javascript" src="/ts/main.js" defer></script>
+<script>
+    (function () {
+        const customFont = document.createElement('link');
+        customFont.href = "https://fonts.googleapis.com/css2?family=Lato:wght@300;400;700&display=swap";
+
+        customFont.type = "text/css";
+        customFont.rel = "stylesheet";
+
+        document.head.appendChild(customFont);
+    }());
+</script>
+
+    </body>
+</html>
