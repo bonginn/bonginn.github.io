@@ -1,6 +1,174 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
+    <title>Backpropagation 反向傳播</title>
+    <url>/2025/02/17/backpropagation/</url>
+    <content><![CDATA[<p>學PyTorch不如自己刻一次Backpropagation。<br><span id="more"></span></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a><strong>前言</strong></h1><p>本篇文章是建立在對Gradient Descent、Neural Network架構有基礎了解的前提下，介紹如何透過Backpropagation來更新神經網路的參數，並且使用NumPy手刻出Backpropagation的過程。</p>
+<h1 id="Forward-向前傳播"><a href="#Forward-向前傳播" class="headerlink" title="Forward 向前傳播"></a><strong>Forward 向前傳播</strong></h1><p>首先，先來看神經網路的基本架構：</p>
+<p><p align="center">
+  <img src="/images/nn.png" alt="Credit: 4o">
+</p><br>這是一個簡易的神經網路，輸入、隱藏層皆有兩個Neurons加上一個Bias，輸出則有兩個neurons。對於某Neuron $X_i$，向前傳播過程可以寫成：</p>
+<div>
+$$
+\begin{aligned}
+Z^{(1)}_j &= \sum_{i=1}^{D} W^{(1)}_{ij}X_i + B^{(1)}_j \\
+A^{(1)}_j &= h(Z^{(1)}_j) \\
+Z^{(2)}_k &= \sum_{j=1}^{M} W^{(2)}_{jk}A^{(1)}_j + B^{(2)}_k \\
+A^{(2)}_k &= Z^{(2)}_k \\
+
+\text{E}(W,B) &= \frac{1}{2} \sum_{k=1}^{K} (A^{(2)}_k - Y_k)^2 
+\end{aligned}
+$$
+</div>
+這裡的$h$表示隱藏層的激活函數（Activation Function），這裡因為以Regression為例，所以輸出層的激活函數為Identity Function。$\text{E}$表示Loss Function，這裡以Mean Squared Error為例。
+
+若僅考慮Variables/Activations的Dependency，可以寫成：
+<div>
+$$
+\begin{aligned}
+X_i \rightarrow W^{(1)}_{ij} \rightarrow Z^{(1)}_j \rightarrow A^{(1)}_j \rightarrow W^{(2)}_{jk} \rightarrow Z^{(2)}_k \rightarrow A^{(2)}_k \rightarrow \text{E}
+\end{aligned}
+$$
+</div>
+
+<h1 id="Backward-反向傳播"><a href="#Backward-反向傳播" class="headerlink" title="Backward 反向傳播"></a><strong>Backward 反向傳播</strong></h1><p>接著，我們要來更新$W^{(2)}$的參數，我們的目標是計算$\frac{\partial E}{\partial W^{(2)}_{jk}}$，但這個東西很難直接算出來，因此我們考慮使用Chain Rule，透過上式的Dependency關係將其拆成 :</p>
+<div>
+$$
+\begin{aligned}
+\frac{\partial E}{\partial W^{(2)}_{jk}} &= \frac{\partial E}{\partial Z^{(2)}_k} \cdot \frac{\partial Z^{(2)}_k}{\partial W^{(2)}_{jk}} \\
+\end{aligned}
+$$  
+</div>
+
+<p>透過一些簡單的偏微分計算，我們得到：</p>
+<div>
+$$
+\begin{aligned}
+\frac{\partial E}{\partial Z^{(2)}_k} &= A^{(2)}_k - Y_k = \delta_{k} \\
+\frac{\partial Z^{(2)}_k}{\partial W^{(2)}_{jk}} &= A^{(1)}_j
+\end{aligned}
+$$
+</div>
+接著再次使用Chain Rule，分解$\frac{\partial E}{\partial W^{(1)}_{ij}}$：
+<div>
+$$
+\begin{aligned}
+\frac{\partial E}{\partial W^{(1)}_{ij}} &= 
+\sum_{k=1}^{K} \left(
+\frac{\partial E}{\partial Z^{(2)}_k} \cdot
+\frac{\partial Z^{(2)}_k}{\partial Z^{(1)}_j} \cdot
+\frac{\partial Z^{(1)}_j}{\partial W^{(1)}_{ij}} \right) \\
+\end{aligned}
+$$
+</div>
+再複習一次大一微積分：
+<div>
+$$
+\begin{aligned}
+\frac{\partial E}{\partial Z^{(2)}_k} &= \delta_{k} \\
+\frac{\partial Z^{(2)}_k}{\partial Z^{(1)}_j} &= W^{(2)}_{jk} \cdot h^{'}(Z_j) \\
+\frac{\partial Z^{(1)}_j}{\partial W^{(1)}_{ij}} &= X_i
+\end{aligned}
+$$
+</div>
+
+
+<p>其中我們會把 $ h<em>j W^{(1)}</em>{jk} $</p>
+<p>將上述四式整理，我們可以得到：</p>
+<div>
+$$
+\begin{aligned}
+\frac{\partial E}{\partial W^{(2)}_{jk}} &= \delta_{k} \cdot A^{(1)}_j \\
+\frac{\partial E}{\partial W^{(1)}_{ij}} &= \delta_{j} \cdot X_i
+\end{aligned}
+$$
+</div>
+
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th>符號</th>
+<th>說明</th>
+<th>維度</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>$X$</td>
+<td>輸入矩陣</td>
+<td>(m, n_input)</td>
+</tr>
+<tr>
+<td>$W^{(1)}$</td>
+<td>第一層的權重矩陣</td>
+<td>(n_input, n_hidden)</td>
+</tr>
+<tr>
+<td>$B^{(1)}$</td>
+<td>第一層的偏差矩陣</td>
+<td>(1, n_hidden)</td>
+</tr>
+<tr>
+<td>$Z^{(1)}$</td>
+<td>第一層的線性組合</td>
+<td>(m, n_hidden)</td>
+</tr>
+<tr>
+<td>$A^{(1)}$</td>
+<td>第一層的激活函數結果</td>
+<td>(m, n_hidden)</td>
+</tr>
+<tr>
+<td>$W^{(2)}$</td>
+<td>第二層的權重矩陣</td>
+<td>(n_hidden, n_output)</td>
+</tr>
+<tr>
+<td>$B^{(2)}$</td>
+<td>第二層的偏差矩陣</td>
+<td>(1, n_output)</td>
+</tr>
+<tr>
+<td>$Z^{(2)}$</td>
+<td>第二層的線性組合</td>
+<td>(m, n_output)</td>
+</tr>
+<tr>
+<td>$A^{(2)}$</td>
+<td>第二層的激活函數結果</td>
+<td>(m, n_output)</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>其中，m為Batch Size，n_input為輸入的特徵數，n_hidden為隱藏層的Neuron數，n_output為輸出的Neuron數。<br>將此神經網路的向前傳播過程寫成矩陣運算如下：</p>
+<div>
+$$
+\begin{aligned}
+Z^{(1)} &= X \cdot W^{(1)} + B^{(1)} \\
+A^{(1)} &= h(Z^{(1)}) \\
+Z^{(2)} &= A^{(1)} \cdot W^{(2)} + B^{(2)} \\
+A^{(2)} &= Z^{(2)} 
+\end{aligned}
+$$
+</div>
+
+
+
+
+
+]]></content>
+      <categories>
+        <category>Note</category>
+      </categories>
+      <tags>
+        <tag>code</tag>
+        <tag>maching learning</tag>
+      </tags>
+  </entry>
+  <entry>
     <title>WQS 二分搜</title>
     <url>/2025/01/08/WQS%E4%BA%8C%E5%88%86%E6%90%9C/</url>
     <content><![CDATA[<p>一篇WQS二分搜的筆記，希望能讓自己不要這麼快忘記的個優化技巧。<br><span id="more"></span></p>
@@ -21,6 +189,18 @@
       </tags>
   </entry>
   <entry>
+    <title>我的第一篇貼文</title>
+    <url>/2024/08/24/test/</url>
+    <content><![CDATA[<p>這是一篇測試用的文章。<br><span id="more"></span></p>
+<h2 id="首先先來測試一些基本的文字"><a href="#首先先來測試一些基本的文字" class="headerlink" title="首先先來測試一些基本的文字"></a>首先先來測試一些基本的文字</h2><p>嗨，你好。<br>I am Chung Pang Chun, and the handle I often use is bonginn.<br>1 + 1 = 2</p>
+<h2 id="測試數學式"><a href="#測試數學式" class="headerlink" title="測試數學式"></a>測試數學式</h2><p>$x^n + y^n = z^n$</p>
+<p>\begin{equation}<br>  \begin{aligned}<br>    \frac{-b + \sqrt{b^2 - 4ac}}{2a}<br>  \end{aligned}<br>\end{equation}</p>
+<h2 id="測試code"><a href="#測試code" class="headerlink" title="測試code"></a>測試code</h2><figure class="highlight cpp"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="keyword">using</span> <span class="keyword">namespace</span> std;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">()</span></span>&#123;</span><br><span class="line">    <span class="type">int</span> a, b;</span><br><span class="line">    cin &gt;&gt; a &gt;&gt; b;</span><br><span class="line">    cout &lt;&lt; a + b;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="測試圖片"><a href="#測試圖片" class="headerlink" title="測試圖片"></a>測試圖片</h2><p><img src="/images/IMG_3033.JPG" alt="烏薩奇"></p>
+<h2 id="測試連結"><a href="#測試連結" class="headerlink" title="測試連結"></a>測試連結</h2><p><a href="https://codeforces.com/">codeforces</a></p>
+]]></content>
+  </entry>
+  <entry>
     <title>TIOJ 2070</title>
     <url>/2024/08/24/tioj2070/</url>
     <content><![CDATA[<p>Solution of TIOJ 2070 - Special Judge。<br><span id="more"></span></p>
@@ -37,17 +217,5 @@
       <tags>
         <tag>code</tag>
       </tags>
-  </entry>
-  <entry>
-    <title>我的第一篇貼文</title>
-    <url>/2024/08/24/test/</url>
-    <content><![CDATA[<p>這是一篇測試用的文章。<br><span id="more"></span></p>
-<h2 id="首先先來測試一些基本的文字"><a href="#首先先來測試一些基本的文字" class="headerlink" title="首先先來測試一些基本的文字"></a>首先先來測試一些基本的文字</h2><p>嗨，你好。<br>I am Chung Pang Chun, and the handle I often use is bonginn.<br>1 + 1 = 2</p>
-<h2 id="測試數學式"><a href="#測試數學式" class="headerlink" title="測試數學式"></a>測試數學式</h2><p>$x^n + y^n = z^n$</p>
-<p>\begin{equation}<br>  \begin{aligned}<br>    \frac{-b + \sqrt{b^2 - 4ac}}{2a}<br>  \end{aligned}<br>\end{equation}</p>
-<h2 id="測試code"><a href="#測試code" class="headerlink" title="測試code"></a>測試code</h2><figure class="highlight cpp"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="keyword">using</span> <span class="keyword">namespace</span> std;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">()</span></span>&#123;</span><br><span class="line">    <span class="type">int</span> a, b;</span><br><span class="line">    cin &gt;&gt; a &gt;&gt; b;</span><br><span class="line">    cout &lt;&lt; a + b;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<h2 id="測試圖片"><a href="#測試圖片" class="headerlink" title="測試圖片"></a>測試圖片</h2><p><img src="/images/IMG_3033.JPG" alt="烏薩奇"></p>
-<h2 id="測試連結"><a href="#測試連結" class="headerlink" title="測試連結"></a>測試連結</h2><p><a href="https://codeforces.com/">codeforces</a></p>
-]]></content>
   </entry>
 </search>
