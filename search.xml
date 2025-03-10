@@ -460,7 +460,7 @@ $$
 </table>
 </div>
 <p>From these two scenarios, we can observe that <strong>smaller memory access</strong> or <strong>smaller FLOPs</strong> will not necessarily lead to better performance. </p>
-<h1 id="Conclusion"><a href="#Conclusion" class="headerlink" title="Conclusion"></a><strong>Conclusion</strong></h1><p>During the user’s interative with LLMs, the <strong>prefill stage</strong> excutes only once, while the <strong>decode stage</strong> is repeatedly performed to progressively generate the output. Therefore, optimizing for the memory bound characteristics of the decode stage becomes crucial for enhancing the inference performance of LLMs.</p>
+<h1 id="Conclusion"><a href="#Conclusion" class="headerlink" title="Conclusion"></a><strong>Conclusion</strong></h1><p>During the user’s interative with LLMs, the <strong>prefill stage</strong> excutes only once, while the <strong>decode stage</strong> is repeatedly performed to progressively generate the output. Moreover, when calculating the arithmetic intensity of each layer in LLMs, we will observe that the Prefill stage is almost entirely compute-bound, while the Decode stage is memory-bound. Therefore, optimizing for the memory bound characteristics of the decode stage becomes crucial for enhancing the inference performance of LLMs.</p>
 <h1 id="Reference"><a href="#Reference" class="headerlink" title="Reference"></a><strong>Reference</strong></h1><ol>
 <li><a href="https://arxiv.org/pdf/2402.16363">LLM Inference Unveiled: Survey and Roofline Model Insights</a></li>
 <li>Course slides of <em>Edge AI</em>, NYCU.</li>
