@@ -224,7 +224,7 @@ $$
       </categories>
       <tags>
         <tag>code</tag>
-        <tag>maching learning</tag>
+        <tag>Machine Learning</tag>
       </tags>
   </entry>
   <entry>
@@ -238,6 +238,241 @@ $$
 <h2 id="測試圖片"><a href="#測試圖片" class="headerlink" title="測試圖片"></a>測試圖片</h2><p><img src="/images/IMG_3033.JPG" alt="烏薩奇"></p>
 <h2 id="測試連結"><a href="#測試連結" class="headerlink" title="測試連結"></a>測試連結</h2><p><a href="https://codeforces.com/">codeforces</a></p>
 ]]></content>
+  </entry>
+  <entry>
+    <title>Roofline Model for Performance Analysis</title>
+    <url>/2025/03/09/roofline/</url>
+    <content><![CDATA[<p>A note about Roofline Model.<br><span id="more"></span></p>
+<h1 id="Definition"><a href="#Definition" class="headerlink" title="Definition"></a><strong>Definition</strong></h1><ol>
+<li><strong>FLOPs</strong> : Number of Floating Point Operations. A Multiply-Add operation(MAC) is counted as 2 FLOPs.</li>
+<li><p><strong>FLOPS</strong> : Floating Point Operations Per Second.</p>
+<div>
+$$
+\begin{aligned}
+\text{FLOPS} &= \frac{\text{FLOPs}}{\text{Second}} \\
+\end{aligned}
+$$
+</div>
+</li>
+<li><p><strong>OPs</strong> : Number of Operations. (Not necessarily Floating Point Operations)</p>
+</li>
+<li><strong>OPS</strong> : Number of Operations Per Second.<div>
+$$
+\begin{aligned}
+\text{OPS} &= \frac{\text{OPs}}{\text{Second}} \\
+\end{aligned}
+$$
+</div></li>
+<li><strong>Memory Bandwidth</strong> : The rate at which data can be read from or written to memory (Bytes per second).</li>
+<li><strong>Arithmetic Intensity</strong> : The ratio of Total OPs performed to the Total Bytes moved.<div>
+$$
+\begin{aligned}
+\text{I} &= \frac{C \text{(Computations, OPs)}}{M \text{(Memory Access, Bytes)}} \\
+\end{aligned}
+$$
+</div>
+
+
+</li>
+</ol>
+<h1 id="Process-Of-DNN-Inference-on-Hardware"><a href="#Process-Of-DNN-Inference-on-Hardware" class="headerlink" title="Process Of DNN Inference on Hardware"></a><strong>Process Of DNN Inference on Hardware</strong></h1><p>Step 1 (Memory Access): Moving Input/Weghts from memory to CPU/GPU.<br>Step 2 (Compute): Perform the operations(e.g. Linear, Convolution…).<br>Step 3 (Memory Access): Writing the computed activation back to memory.<br>The process can be visualized as below:</p>
+<p><p align="center">
+  <img src="/images/hardware_run.png" alt="Execution of an operation on hardware.">
+</p><br>Therefore, evaluating performance requires simultaneous consideration of <strong>memory bandwidth</strong> and <strong>processing unit capabilities</strong>. If a layer involes extensive computation but minimal memory access, it is termed a computation bottleneck. Conversely, if a layer requires frequent memory access but minimal computation, it is termed a memory bottleneck. We can clearly distinguish between these two scenarios according to the Roofline Model.</p>
+<h1 id="Roofline-Model"><a href="#Roofline-Model" class="headerlink" title=" Roofline Model "></a><strong> Roofline Model </strong></h1><h2 id="Plot-the-Roofline-Model"><a href="#Plot-the-Roofline-Model" class="headerlink" title="Plot the Roofline Model"></a>Plot the Roofline Model</h2><p>Firstly, we need to determine the <strong>Peak Computational Performance</strong> (operations per second, OPS) $\pi$ and <strong>Peak Memory Bandwidth</strong>(bytes per second) $\beta$ specific to the target hardware device. Create a graph with <strong>performance</strong> (OPS) on the y-axis and <strong>arithmetic intensity</strong> (OPs/byte) on the x-axis:</p>
+<ul>
+<li>Draw a horizontal line equal to the peak computational performance, representing the maximum achievable performance by hardware. </li>
+<li>Draw a diagonal line from the original point with a slope equal to the peak memory bandwidth, representing the maximum memory bandwidth avaible on the system.<table align="center">
+<tr>
+  <td align="center">
+    <img src="/images/pi.png" alt="Peak Computational Capability" width="100%">
+  </td>
+  <td align="center">
+    <img src="/images/beta.png" alt="Peak Memory Bandwidth" width="100%">
+  </td>
+</tr>
+</table>
+
+</li>
+</ul>
+<p>After plotting these two lines, we can get <strong>Roofline Model</strong> as below:<br><img src="/images/roofline.png" alt="Roofline Model"></p>
+<h2 id="Analyze-Performance-for-Layers"><a href="#Analyze-Performance-for-Layers" class="headerlink" title="Analyze Performance for Layers"></a>Analyze Performance for Layers</h2><p>For each layer in LLMs, we can calculate its <strong>arithmetic intensity</strong>(OPs/byte) by dividing the required operations(OPs) by the amount of data transferred(bytes). According to the Roofline Model just plotted, the theoretical maximum performance for each layer is determined by the position on the graph corresponding to the arithmetic intensity of the layer. It allows us to ascertain whether this layer is <strong>compute-bound</strong> or <strong>memory-bound</strong>:</p>
+<ul>
+<li>If the layer’s arithmetic intensity is below the turning point, it means that the computational workload per memory access is low. Even saturating the memory bandwidth, it does not utilize the full computational capability of the hardware. In this case, the layer is constrained by memory access, and it is termed <strong>memory-bound</strong>. If the layer is memory-bound, we can optimize the performance by <strong>quantization, kernel fusion or increasing the batch size</strong>(decrease the number of memory access).</li>
+<li>Conversely, if the layer’s arithmetic intensity is above the turning point, it means that the computational workload per memory access is high. It implies that the layer requires only a small amount of memory access to consume a significant amount of computational capability, and it is termed <strong>compute-bound</strong>. </li>
+</ul>
+<h2 id="Estimated-Execution-Time"><a href="#Estimated-Execution-Time" class="headerlink" title="Estimated Execution Time"></a>Estimated Execution Time</h2><p>The execution time is the number of operations divided by performance</p>
+<div>
+$$
+\begin{aligned}
+\text{T} &= \frac{C}{P} = \frac{C}{\min(\pi, \beta \cdot I)} \\
+\end{aligned}
+$$
+</div>
+Memory Bound:
+
+<div>
+$$
+\begin{aligned}
+\text{T} &= \frac{C}{\beta \cdot I} = \frac{C}{\beta \cdot \frac{C}{M}} = \frac{M}{\beta}\\
+\end{aligned}
+$$
+</div>
+
+<p>Compute Bound:</p>
+<div>
+$$
+\begin{aligned}
+\text{T} &= \frac{C}{\pi} \\
+\end{aligned}
+$$
+</div>
+
+<h2 id="Example-Usage-of-Roofline-Model"><a href="#Example-Usage-of-Roofline-Model" class="headerlink" title="Example Usage of Roofline Model"></a>Example Usage of Roofline Model</h2><p>Here, I provide an example of using the Roofline Model to analyze the performance of a specific layer in a neural network. Suppose we have some operations with #FLOPs and #Memory Access as below:</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th>Operation</th>
+<th>#FLOPs (M)</th>
+<th>#Memory Access (MB)</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>op1</td>
+<td>57.8M</td>
+<td>25MB</td>
+</tr>
+<tr>
+<td>op2</td>
+<td>51.4M</td>
+<td>2.3MB</td>
+</tr>
+<tr>
+<td>op3</td>
+<td>925M</td>
+<td>25MB</td>
+</tr>
+<tr>
+<td>op4</td>
+<td>236M</td>
+<td>3.7MB</td>
+</tr>
+<tr>
+<td>op5</td>
+<td>172M</td>
+<td>1.3MB</td>
+</tr>
+<tr>
+<td>op6</td>
+<td>231M</td>
+<td>1.3MB</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h3 id="Reduce-Memory-Access-when-it’s-Memory-Bound-op1-vs-op2"><a href="#Reduce-Memory-Access-when-it’s-Memory-Bound-op1-vs-op2" class="headerlink" title="Reduce #Memory Access when it’s Memory Bound (op1 vs op2)"></a>Reduce #Memory Access when it’s <strong>Memory Bound</strong> (op1 vs op2)</h3><ul>
+<li>Reducing #FLOPs results no speed up. (refer op1 and op3)</li>
+<li>Higher computaional capability(higher $\pi$) does not improve performance. </li>
+</ul>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th>Operation</th>
+<th>#FLOPs (M)</th>
+<th>#Memory Access (MB)</th>
+<th>Operational Intensity</th>
+<th>Attainable Performance (GFLOPS)</th>
+<th>Theoretical Inference Time</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>op1</td>
+<td>57.8M</td>
+<td>24.5MB</td>
+<td>2.4</td>
+<td>226.5</td>
+<td>255</td>
+</tr>
+<tr>
+<td>op2</td>
+<td>51.4M</td>
+<td>2.3MB</td>
+<td>22.5</td>
+<td>2156.7</td>
+<td>23.8</td>
+</tr>
+<tr>
+<td>op3</td>
+<td>925M</td>
+<td>24.5MB</td>
+<td>37.7</td>
+<td>3622.6</td>
+<td>255</td>
+</tr>
+</tbody>
+</table>
+</div>
+<h3 id="Reduce-FLOPs-when-it’s-Compute-Bound-op5-vs-op6"><a href="#Reduce-FLOPs-when-it’s-Compute-Bound-op5-vs-op6" class="headerlink" title="Reduce #FLOPs when it’s Compute Bound (op5 vs op6)"></a>Reduce #FLOPs when it’s <strong>Compute Bound</strong> (op5 vs op6)</h3><ul>
+<li>Reducing #Memory Access results in speed up. (refer op4 and op6)</li>
+</ul>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th>Operation</th>
+<th>#FLOPs (M)</th>
+<th>#Memory Access (MB)</th>
+<th>Operational Intensity</th>
+<th>Attainable Performance (GFLOPS)</th>
+<th>Theoretical Inference Time</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>op4</td>
+<td>236M</td>
+<td>3.7MB</td>
+<td>64</td>
+<td>4608</td>
+<td>51.2</td>
+</tr>
+<tr>
+<td>op5</td>
+<td>172M</td>
+<td>1.3MB</td>
+<td>132</td>
+<td>4608</td>
+<td>37.3</td>
+</tr>
+<tr>
+<td>op6</td>
+<td>231M</td>
+<td>1.3MB</td>
+<td>174</td>
+<td>4608</td>
+<td>50.3</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>From these two scenarios, we can observe that <strong>smaller memory access</strong> or <strong>smaller FLOPs</strong> will not necessarily lead to better performance. </p>
+<h1 id="Conclusion"><a href="#Conclusion" class="headerlink" title="Conclusion"></a><strong>Conclusion</strong></h1><p>During the user’s interative with LLMs, the <strong>prefill stage</strong> excutes only once, while the <strong>decode stage</strong> is repeatedly performed to progressively generate the output. Therefore, optimizing for the memory bound characteristics of the decode stage becomes crucial for enhancing the inference performance of LLMs.</p>
+<h1 id="Reference"><a href="#Reference" class="headerlink" title="Reference"></a><strong>Reference</strong></h1><ol>
+<li><a href="https://arxiv.org/pdf/2402.16363">LLM Inference Unveiled: Survey and Roofline Model Insights</a></li>
+<li>Course slides of <em>Edge AI</em>, NYCU.</li>
+</ol>
+]]></content>
+      <categories>
+        <category>Note</category>
+      </categories>
+      <tags>
+        <tag>Machine Learning</tag>
+        <tag>AI Efficiency</tag>
+      </tags>
   </entry>
   <entry>
     <title>TIOJ 2070</title>
