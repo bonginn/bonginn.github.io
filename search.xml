@@ -228,18 +228,6 @@ $$
       </tags>
   </entry>
   <entry>
-    <title>我的第一篇貼文</title>
-    <url>/2024/08/24/test/</url>
-    <content><![CDATA[<p>這是一篇測試用的文章。<br><span id="more"></span></p>
-<h2 id="首先先來測試一些基本的文字"><a href="#首先先來測試一些基本的文字" class="headerlink" title="首先先來測試一些基本的文字"></a>首先先來測試一些基本的文字</h2><p>嗨，你好。<br>I am Chung Pang Chun, and the handle I often use is bonginn.<br>1 + 1 = 2</p>
-<h2 id="測試數學式"><a href="#測試數學式" class="headerlink" title="測試數學式"></a>測試數學式</h2><p>$x^n + y^n = z^n$</p>
-<p>\begin{equation}<br>  \begin{aligned}<br>    \frac{-b + \sqrt{b^2 - 4ac}}{2a}<br>  \end{aligned}<br>\end{equation}</p>
-<h2 id="測試code"><a href="#測試code" class="headerlink" title="測試code"></a>測試code</h2><figure class="highlight cpp"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="keyword">using</span> <span class="keyword">namespace</span> std;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">()</span></span>&#123;</span><br><span class="line">    <span class="type">int</span> a, b;</span><br><span class="line">    cin &gt;&gt; a &gt;&gt; b;</span><br><span class="line">    cout &lt;&lt; a + b;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<h2 id="測試圖片"><a href="#測試圖片" class="headerlink" title="測試圖片"></a>測試圖片</h2><p><img src="/images/IMG_3033.JPG" alt="烏薩奇"></p>
-<h2 id="測試連結"><a href="#測試連結" class="headerlink" title="測試連結"></a>測試連結</h2><p><a href="https://codeforces.com/">codeforces</a></p>
-]]></content>
-  </entry>
-  <entry>
     <title>Roofline Model for Performance Analysis</title>
     <url>/2025/03/09/roofline/</url>
     <content><![CDATA[<p>A note about Roofline Model.<br><span id="more"></span></p>
@@ -374,7 +362,7 @@ $$
 </div>
 <h3 id="Reduce-Memory-Access-when-it’s-Memory-Bound-op1-vs-op2"><a href="#Reduce-Memory-Access-when-it’s-Memory-Bound-op1-vs-op2" class="headerlink" title="Reduce #Memory Access when it’s Memory Bound (op1 vs op2)"></a>Reduce #Memory Access when it’s <strong>Memory Bound</strong> (op1 vs op2)</h3><ul>
 <li>Reducing #FLOPs results no speed up. (refer op1 and op3)</li>
-<li>Higher computaional capability(higher $\pi$) does not improve performance. </li>
+<li>Higher computational capability(higher $\pi$) does not improve performance. </li>
 </ul>
 <div class="table-container">
 <table>
@@ -417,7 +405,7 @@ $$
 </table>
 </div>
 <h3 id="Reduce-FLOPs-when-it’s-Compute-Bound-op5-vs-op6"><a href="#Reduce-FLOPs-when-it’s-Compute-Bound-op5-vs-op6" class="headerlink" title="Reduce #FLOPs when it’s Compute Bound (op5 vs op6)"></a>Reduce #FLOPs when it’s <strong>Compute Bound</strong> (op5 vs op6)</h3><ul>
-<li>Reducing #Memory Access results in speed up. (refer op4 and op6)</li>
+<li>Reducing #Memory Access results no speed up. (refer op4 and op6)</li>
 </ul>
 <div class="table-container">
 <table>
@@ -491,5 +479,17 @@ $$
       <tags>
         <tag>code</tag>
       </tags>
+  </entry>
+  <entry>
+    <title>我的第一篇貼文</title>
+    <url>/2024/08/24/test/</url>
+    <content><![CDATA[<p>這是一篇測試用的文章。<br><span id="more"></span></p>
+<h2 id="首先先來測試一些基本的文字"><a href="#首先先來測試一些基本的文字" class="headerlink" title="首先先來測試一些基本的文字"></a>首先先來測試一些基本的文字</h2><p>嗨，你好。<br>I am Chung Pang Chun, and the handle I often use is bonginn.<br>1 + 1 = 2</p>
+<h2 id="測試數學式"><a href="#測試數學式" class="headerlink" title="測試數學式"></a>測試數學式</h2><p>$x^n + y^n = z^n$</p>
+<p>\begin{equation}<br>  \begin{aligned}<br>    \frac{-b + \sqrt{b^2 - 4ac}}{2a}<br>  \end{aligned}<br>\end{equation}</p>
+<h2 id="測試code"><a href="#測試code" class="headerlink" title="測試code"></a>測試code</h2><figure class="highlight cpp"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="keyword">using</span> <span class="keyword">namespace</span> std;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">()</span></span>&#123;</span><br><span class="line">    <span class="type">int</span> a, b;</span><br><span class="line">    cin &gt;&gt; a &gt;&gt; b;</span><br><span class="line">    cout &lt;&lt; a + b;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="測試圖片"><a href="#測試圖片" class="headerlink" title="測試圖片"></a>測試圖片</h2><p><img src="/images/IMG_3033.JPG" alt="烏薩奇"></p>
+<h2 id="測試連結"><a href="#測試連結" class="headerlink" title="測試連結"></a>測試連結</h2><p><a href="https://codeforces.com/">codeforces</a></p>
+]]></content>
   </entry>
 </search>
