@@ -1,5 +1,96 @@
 /* eslint-disable node/no-unsupported-features/node-builtins */
 (function($, moment, ClipboardJS, config) {
+    function initTocAutoScroll() {
+        const $toc = document.getElementById('toc');
+        if (!$toc) {
+            $(window).off('scroll.tocAutoScroll');
+            return;
+        }
+
+        function findScrollParent(el) {
+            let p = el && el.parentElement;
+            while (p && p !== document.body) {
+                const style = window.getComputedStyle(p);
+                const overflowY = style.overflowY;
+                if ((overflowY === 'auto' || overflowY === 'scroll') && p.scrollHeight > p.clientHeight) {
+                    return p;
+                }
+                p = p.parentElement;
+            }
+            return null;
+        }
+
+        let ticking = false;
+        function maybeScrollActiveIntoView() {
+            const active = document.querySelector('#toc .menu-list a.is-active');
+            if (!active) return;
+
+            const scrollParent = findScrollParent(active);
+            if (!scrollParent) return; // TOC not scrollable in current layout
+
+            const pad = 12;
+            const parentRect = scrollParent.getBoundingClientRect();
+            const activeRect = active.getBoundingClientRect();
+
+            if (activeRect.top < parentRect.top + pad) {
+                scrollParent.scrollTop -= (parentRect.top + pad - activeRect.top);
+            } else if (activeRect.bottom > parentRect.bottom - pad) {
+                scrollParent.scrollTop += (activeRect.bottom - (parentRect.bottom - pad));
+            }
+        }
+
+        function onScroll() {
+            if (ticking) return;
+            ticking = true;
+            window.requestAnimationFrame(() => {
+                maybeScrollActiveIntoView();
+                ticking = false;
+            });
+        }
+
+        $(window).off('scroll.tocAutoScroll').on('scroll.tocAutoScroll', onScroll);
+        maybeScrollActiveIntoView();
+    }
+
+    function initReadingProgress() {
+        const bar = document.getElementById('reading-progress-bar');
+        if (!bar) {
+            // Unbind if we navigated away
+            $(window).off('scroll.readingProgress');
+            return;
+        }
+
+        let ticking = false;
+        function update() {
+            const doc = document.documentElement;
+            const scrollTop = doc.scrollTop || document.body.scrollTop || 0;
+            const scrollHeight = doc.scrollHeight || document.body.scrollHeight || 0;
+            const clientHeight = doc.clientHeight || window.innerHeight || 0;
+            const max = Math.max(1, scrollHeight - clientHeight);
+            const pct = Math.min(1, Math.max(0, scrollTop / max));
+            bar.style.width = (pct * 100).toFixed(2) + '%';
+            ticking = false;
+        }
+
+        function onScroll() {
+            if (ticking) return;
+            ticking = true;
+            window.requestAnimationFrame(update);
+        }
+
+        $(window).off('scroll.readingProgress').on('scroll.readingProgress', onScroll);
+        update();
+    }
+
+    // Init once on first load
+    initReadingProgress();
+    initTocAutoScroll();
+    // Re-init after PJAX navigations (if enabled)
+    document.addEventListener('pjax:complete', () => {
+        initReadingProgress();
+        initTocAutoScroll();
+    });
+
     $('.article img:not(".not-gallery-item")').each(function() {
         // wrap images with link and add caption if possible
         if ($(this).parent('a').length === 0) {

@@ -8,6 +8,12 @@
 body.night {
   background: #0e1225;
 }
+body.night .reading-progress {
+  background: rgba(255,255,255,0.12);
+}
+body.night .card.post-card-index:hover {
+  box-shadow: 0 18px 45px rgba(0,0,0,0.35);
+}
 .night .content code {
   color: #cbba7d;
 }
@@ -257,9 +263,30 @@ body.night {
 .night hr {
   background-color: #434a56;
 }
-.night article.article .title:hover a,
-.night article.media .title:hover a {
+.night article.article .title:hover a:not(.link-muted),
+.night article.media .title:hover a:not(.link-muted) {
   color: #c0c0c0 !important;
+}
+.night article.article .title > a.link-muted {
+  background-image: linear-gradient(to right, #5299e0, #5299e0);
+}
+.night article.article .title > a.link-muted:hover {
+  color: #fff !important;
+  background-size: 100% 2px;
+}
+.night article.article .title > a.link-muted:focus-visible {
+  color: #fff !important;
+  outline: 2px solid rgba(82,153,224,0.35);
+  outline-offset: 3px;
+  background-size: 100% 2px;
+}
+.card:hover .night article.article .title > a.link-muted {
+  color: #fff !important;
+  background-size: 100% 2px;
+}
+.card:focus-within .night article.article .title > a.link-muted {
+  color: #fff !important;
+  background-size: 100% 2px;
 }
 .night .tag:not(body) {
   color: #c0c0c0;
