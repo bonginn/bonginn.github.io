@@ -10846,6 +10846,17 @@ article.article .content {
   word-wrap: break-word;
   font-size: 1.2rem;
 }
+article.article .content strong,
+article.article .content b {
+  font-weight: 700;
+  font-synthesis: weight;
+}
+@supports (-webkit-text-stroke: 0.15px currentColor) {
+  article.article .content strong,
+  article.article .content b {
+    -webkit-text-stroke: 0.15px currentColor;
+  }
+}
 article.article .content h1 {
   font-size: 1.75em;
 }
@@ -10868,6 +10879,12 @@ article.article .content code {
   padding: 0;
   background: transparent;
   overflow-wrap: break-word;
+}
+article.article .content .katex-display,
+article.article .content .MathJax_Display {
+  overflow-x: auto;
+  overflow-y: hidden;
+  max-width: 100%;
 }
 article.article .content blockquote.pullquote {
   float: right;
