@@ -21,210 +21,264 @@
       </tags>
   </entry>
   <entry>
-    <title>Backpropagation 反向傳播</title>
-    <url>/2025/02/17/backpropagation/</url>
-    <content><![CDATA[<p>學PyTorch不如自己刻一次Backpropagation。<br><span id="more"></span></p>
-<h1 id="Opening"><a href="#Opening" class="headerlink" title="Opening"></a><strong>Opening</strong></h1><p>本篇文章是建立在對Gradient Descent、Neural Network架構有基礎了解的前提下，介紹如何透過Backpropagation來更新神經網路的參數，並且使用NumPy手刻出Backpropagation的過程。</p>
-<h1 id="Forward-向前傳播"><a href="#Forward-向前傳播" class="headerlink" title="Forward 向前傳播"></a><strong>Forward 向前傳播</strong></h1><p>首先，先來看神經網路的基本架構：</p>
-<p><p align="center">
-  <img src="/images/nn.png" alt="Credit: 4o">
-</p><br>這是一個簡易的神經網路，輸入、隱藏層皆有兩個Neurons加上一個Bias，輸出則有一個Neurons。對於某Neuron $X_i$，向前傳播過程可以寫成：</p>
+    <title>Multi-head Latent Attention</title>
+    <url>/2025/12/30/mla/</url>
+    <content><![CDATA[<p>This is a note about DeepSeek-V2 Multi-Head Latent Attention.<br><span id="more"></span></p>
+<h1 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h1><p>Large Language Models (LLMs) operate on a simple principle: <strong>Autoregressive Decoding</strong>. This means that the model generates text one token at a time, using the entire history of the conversation to predict the next word. However, this comes with a significant computational cost. To generate N-th token, the model needs the information of all previous N-1 tokens. Re-computing the entire attention states (Key and Value) at every single step would be prohibitively slow.<br>To address this issue, we usually use <strong>KV Cache</strong> to store the Key(K) and Value(V) vectors of all previous tokens in VRAM. At each decoding step, we only need to compute the K and V vectors for the current token, and append them into the KV Cache.<br>While caching K and V avoids re-computing, it introduces a memory bottleneck that scales linearly with sequence length:</p>
 <div>
 $$
 \begin{aligned}
-Z^{(1)}_j &= \sum_{i=1}^{D} W^{(1)}_{ij}X_i + B^{(1)}_j \\
-A^{(1)}_j &= h(Z^{(1)}_j) \\
-Z^{(2)}_k &= \sum_{j=1}^{M} W^{(2)}_{jk}A^{(1)}_j + B^{(2)}_k \\
-A^{(2)}_k &= Z^{(2)}_k \\
-
-\text{E}(W,B) &= \frac{1}{2 } \sum_{k=1}^{K} (A^{(2)}_k - Y_k)^2 
-\end{aligned}
-$$
-</div>
-這裡的$h$表示隱藏層的激活函數（Activation Function），這裡因為以Regression為例，所以輸出層的激活函數為Identity Function。$\text{E}$表示Loss Function，這裡以Mean Squared Error為例。
-
-若僅考慮Variables/Activations的Dependency，可以寫成：
-<div>
-$$
-\begin{aligned}
-X_i \rightarrow W^{(1)}_{ij} \rightarrow Z^{(1)}_j \rightarrow A^{(1)}_j \rightarrow W^{(2)}_{jk} \rightarrow Z^{(2)}_k \rightarrow A^{(2)}_k \leftrightarrow Y_k \rightarrow \text{E}
+\text{KV Cache Size} &= 2 \times \text{Batch Size} \times \text{Sequence Length} \times \text{Layers}\times \text{Heads} \times \text{Hidden Size} \times \text{Type Width}\\
 \end{aligned}
 $$
 </div>
 
-<h1 id="Backward-反向傳播"><a href="#Backward-反向傳播" class="headerlink" title="Backward 反向傳播"></a><strong>Backward 反向傳播</strong></h1><p>接著，我們要來更新$W^{(2)}$的參數，我們的目標是計算$\frac{\partial E}{\partial W^{(2)}_{jk}}$，但這個東西很難直接算出來，因此我們考慮使用<strong>Chain Rule</strong>，透過上式的Dependency關係將其拆成 :</p>
+<p>In practice, modern LLM inference is often <strong>memory-bandwidth bound</strong> rather than <strong>compute-bound</strong>, especially during long-context decoding stage.<br>While attention computation itself is highly optimized, repeatedly reading and writing large KV cache from GPU memory becomes the bottleneck. This observation motivates a series of techniques to reduce the memory footprint of the KV cache, such as MQA, GQA and MLA.</p>
+<h1 id="Existing-KV-Cache-Reduction-Techniques"><a href="#Existing-KV-Cache-Reduction-Techniques" class="headerlink" title="Existing KV Cache Reduction Techniques"></a>Existing KV Cache Reduction Techniques</h1><h2 id="Multi-Head-Attention-MHA"><a href="#Multi-Head-Attention-MHA" class="headerlink" title="Multi-Head Attention (MHA)"></a>Multi-Head Attention (MHA)</h2><p>In standard multi-head attention, each attention head maintains its own key and value projections.<br>For a sequence of length (L) and a model with (N) layers and (H) attention heads, the KV cache stores a distinct key-value pair for every token, layer, and head.</p>
 <div>
 $$
 \begin{aligned}
-\frac{\partial E}{\partial W^{(2)}_{jk}} &= \frac{\partial E}{\partial Z^{(2)}_k} \cdot \frac{\partial Z^{(2)}_k}{\partial W^{(2)}_{jk}} \\
-\end{aligned}
-$$  
-</div>
-
-<p>透過一些簡單的偏微分計算，我們得到：</p>
-<div>
-$$
-\begin{aligned}
-\frac{\partial E}{\partial Z^{(2)}_k} &= A^{(2)}_k - Y_k = \delta_{k} \\
-\frac{\partial Z^{(2)}_k}{\partial W^{(2)}_{jk}} &= A^{(1)}_j
-\end{aligned}
-$$
-</div>
-接著再次使用Chain Rule，分解$\frac{\partial E}{\partial W^{(1)}_{ij}}$：
-<div>
-$$
-\begin{aligned}
-\frac{\partial E}{\partial W^{(1)}_{ij}} &= 
-\sum_{k=1}^{K} \left(
-\frac{\partial E}{\partial Z^{(2)}_k} \cdot
-\frac{\partial Z^{(2)}_k}{\partial Z^{(1)}_j} \cdot
-\frac{\partial Z^{(1)}_j}{\partial W^{(1)}_{ij}} \right) \\
-\end{aligned}
-$$
-</div>
-再複習一次大一微積分：
-<div>
-$$
-\begin{aligned}
-\frac{\partial E}{\partial Z^{(2)}_k} &= \delta_{k} \\
-\frac{\partial Z^{(2)}_k}{\partial Z^{(1)}_j} &= W^{(2)}_{jk} \cdot h^{'}(Z^{(1)}_j) \\
-\frac{\partial Z^{(1)}_j}{\partial W^{(1)}_{ij}} &= X_i
+\text{KV}_{\text{MHA}} \propto L \times N \times H \times d_h\\
 \end{aligned}
 $$
 </div>
 
-<p>其中，我們定義第一層的誤差信號 $\delta_j$ 為：</p>
+<p>While this design provides strong representational capacity, it leads to a large memory footprint during autoregressive decoding.<br>As the sequence length grows, reading and writing the KV cache becomes a dominant memory-bandwidth bottleneck.</p>
+<h2 id="Multi-Query-Attention-MQA"><a href="#Multi-Query-Attention-MQA" class="headerlink" title="Multi-Query Attention (MQA)"></a>Multi-Query Attention (MQA)</h2><p>Multi-Query Attention reduces the KV cache size by sharing a single set of keys and values across all query heads.<br>Each attention head still computes its own query, but all heads utilize the same key-value pairs.</p>
 <div>
 $$
 \begin{aligned}
-\delta_j &= \frac{\partial E}{\partial Z^{(1)}_j} = \sum_{k=1}^{K} W^{(2)}_{jk} \delta_k h'(Z^{(1)}_j)
+\text{KV}_{\text{MQA}} \propto L \times N \times d_h\\
 \end{aligned}
 $$
 </div>
 
-<p>將上述幾式整理，我們可以得到：</p>
+<p>By removing the dependency on the number of attention heads, MQA significantly reduces the memory footprint of the KV cache.<br>However, this aggressive sharing limits the diversity of attention patterns across heads, which may degrade model quality in some settings.</p>
+<h2 id="Grouped-Query-Attention-GQA"><a href="#Grouped-Query-Attention-GQA" class="headerlink" title="Grouped Query Attention (GQA)"></a>Grouped Query Attention (GQA)</h2><p>Grouped-Query Attention is similar to MQA, but it generalizes MQA by allowing multiple groups of query heads, where each group shares a set of keys and values.</p>
 <div>
 $$
 \begin{aligned}
-\frac{\partial E}{\partial W^{(2)}_{jk}} &= \delta_{k} \cdot A^{(1)}_j \\
-\frac{\partial E}{\partial W^{(1)}_{ij}} &= \delta_{j} \cdot X_i
+\text{KV}_{\text{GQA}} \propto L \times N \times H_{kv} \times d_h\\
 \end{aligned}
 $$
 </div>
 
-<p>對於Bias的Gradient，其實就是：</p>
+<p>where $H_{kv}$ is the number of key-value heads, and $H_q$ is the number of query heads.</p>
+<p>Compared to MHA, GQA reduces the KV cache size by a constant factor of $\frac{H_{kv}}{H_q}$, while preserving more expressive power than MQA. We can see that GQA is a generalization of MQA. As a result, GQA has been widely adopted in large-scale models to balance memory efficiency and model quality.</p>
+<p>Both MQA and GQA reduce the KV cache size by decreasing the number of heads stored. MLA, however, takes a completely different approach: instead of cutting down the number of heads, it changes the representation of the cache itself. The question shifts from <strong>how many heads to cache</strong> to <strong>what to cache</strong>.</p>
+<h1 id="Multi-Head-Latent-Attention-MLA"><a href="#Multi-Head-Latent-Attention-MLA" class="headerlink" title="Multi-Head Latent Attention (MLA)"></a>Multi-Head Latent Attention (MLA)</h1><h2 id="Low-Rank-Key-Value-Joint-Compression"><a href="#Low-Rank-Key-Value-Joint-Compression" class="headerlink" title="Low-Rank Key-Value Joint Compression"></a>Low-Rank Key-Value Joint Compression</h2><p>The core innovation of MLA lies in its compression strategy. Unlike standard MHA where each head has a distinct projection matrix for Keys and Values, MLA projects the input hidden state into a <strong>joint compressed latent vector</strong>.<br>Let $h_t$ be the input hidden state at time $t$. MLA performs a down-projection to obtain the compressed latent vector $c_{\text{KV}}$: </p>
+<div>$$\mathbf{c}_t^{KV} = W^{DKV} \mathbf{h}_t$$</div>
+
+<p>Here, $\mathbf{c}_t^{KV} \in \mathbb{R}^{d_c}$ is the compressed latent vector, and $d_c$ is the compression dimension. Crucially, $d_c$ is significantly smaller than the total dimension of all heads in standard MHA ($d_c \ll d_h n_h$).<br>To generate the Keys and Values used for attention computation, we mathematically “up-project” this latent vector:</p>
 <div>
-$$
+\[
 \begin{aligned}
-\frac{\partial E}{\partial B^{(2)}_{k}} &= \delta_{k} \\
-\frac{\partial E}{\partial B^{(1)}_{j}} &= \delta_{j}
+\left[\mathbf{k}_{t,1}^C;\, \mathbf{k}_{t,2}^C;\, \dots;\, \mathbf{k}_{t,n_h}^C\right]
+&= \mathbf{k}_t^C
+= W^{UK} \mathbf{c}_t^{KV} \\
+\left[\mathbf{v}_{t,1}^C;\, \mathbf{v}_{t,2}^C;\, \dots;\, \mathbf{v}_{t,n_h}^C\right]
+&= \mathbf{v}_t^C
+= W^{UV} \mathbf{c}_t^{KV}
 \end{aligned}
-$$
+\]
 </div>
 
-<p>如此一來我們就算完最複雜的部分了，可以進入實作了！</p>
-<h1 id="Implementation"><a href="#Implementation" class="headerlink" title="Implementation"></a><strong>Implementation</strong></h1><p>在開始實作前，我們先釐清各個矩陣的維度：</p>
+<p>where $W^{UK} \in \mathbb{R}^{d_h n_h \times d_c}$ and $W^{UV} \in \mathbb{R}^{d_h n_h \times d_c}$ are up-projection matrices.</p>
+<p>Moreover, in order to reduce the activation memory during training, MLA also performs low-rank compression for the queries, even if it cannot reduce the KV cache:</p>
+<div>
+\[
+\begin{aligned}
+\mathbf{c}_t^Q
+&= W^{DQ} \mathbf{h}_t \\
+\left[\mathbf{q}_{t,1}^C;\, \mathbf{q}_{t,2}^C;\, \dots;\, \mathbf{q}_{t,n_h}^C\right]
+&= \mathbf{q}_t^C
+= W^{UQ} \mathbf{c}_t^Q
+\end{aligned}
+\]
+</div>
+
+<p>To demonstrate the difference between MHA, MQA, GQA and MLA, you can refer to the figure below:</p>
+<p align="center">
+  <img src="/images/dsattn-1.png" alt="Difference between MHA, MQA, GQA and MLA">
+</p>
+
+<h2 id="Matrix-Absorption"><a href="#Matrix-Absorption" class="headerlink" title="Matrix Absorption"></a>Matrix Absorption</h2><p>In addition, during inference, we can apply <strong>Matrix Absorption</strong> to reduce computation overhead.</p>
+<p>Instead of performing the up-projections to generate the full $\mathbf{q}_{t,i}^C$ and $\mathbf{k}_{j,i}^C$ vectors, we can mathematically merge the two projection steps. Let $W^{UQ}_i$ and $W^{UK}_i$ be the up-projection sub-matrices for the $i$-th head. The attention score can be derived as the interaction between the Latent Query and Latent Key:</p>
+<div>$$\begin{aligned}
+\text{Score}_{t,j,i}
+&amp;= (\mathbf{q}_{t,i}^C)^\top \mathbf{k}_{j,i}^C \\
+&amp;= (W^{UQ}_i \mathbf{c}_t^Q)^\top (W^{UK}_i \mathbf{c}_j^{KV}) \\
+&amp;= (\mathbf{c}_t^Q)^\top (W^{UQ}_i)^\top W^{UK}_i \mathbf{c}_j^{KV} \\
+&amp;= (\mathbf{c}_t^Q)^\top \underbrace{\left( (W^{UQ}_i)^\top W^{UK}_i \right)}_{W^{QK,i}_{Absorbed}} \mathbf{c}_j^{KV}
+\end{aligned}$$
+</div>
+
+<p>Here, $W_{QK,i}^{Absorbed} \in \mathbb{R}^{d_c \times d_c}$ is the pre-computed absorbed matrix for the $i$-th head.</p>
+<p>Similarly, the Value Projection can also be optimized.<br>Here, we explicitly define the attention weight $\alpha_{t,j,i}$ as the Softmax of the scaled scores for the $i$-th head:</p>
+<div>
+$$\alpha_{t,j,i} = \text{Softmax}_j \left( \frac{\text{Score}_{t,j,i}}{\sqrt{d_h + d_h^R}} \right)$$
+</div>
+
+<blockquote>
+<p>In DeepSeek-V2, the scaling factor is $\sqrt{d_h + d_h^R}$ to account for both content and RoPE dimensions (see section 3.3).</p>
+</blockquote>
+<p>In MLA, since $\mathbf{v}_{j, i}^C$ is generated from the latent vector $\mathbf{c}_j^{KV}$, we can rewrite the output calculation:</p>
+<div>
+$$\begin{aligned}
+\mathbf{o}_{t, i} &amp;= \sum_{j=1}^t \alpha_{t,j,i} \mathbf{v}_{j,i}^C \\
+&amp;= \sum_{j=1}^t \alpha_{t,j,i} (W^{UV}_i \mathbf{c}_j^{KV}) \\
+&amp;= W^{UV}_i \underbrace{\left( \sum_{j=1}^t \alpha_{t,j,i} \mathbf{c}_j^{KV} \right)}_{\text{Latent Weighted Sum}}
+\end{aligned}$$
+</div>
+
+<p>Finally, this head’s output is projected by the output matrix $W^O$. By associativity of matrix multiplication, we can merge $W^{UV}_i$ into $W^O_i$:</p>
+<div>
+$$\begin{aligned}
+\mathbf{u}_{t,i} &amp;= W^O_i \mathbf{o}_{t,i} \\
+&amp;= W^O_i \left( W^{UV}_i \sum_{j=1}^t \alpha_{t,j,i} \mathbf{c}_j^{KV} \right) \\
+&amp;= \underbrace{(W^O_i W^{UV}_i)}_{W_{Absorbed}^{O,i}} \left( \sum_{j=1}^t \alpha_{t,j,i} \mathbf{c}_j^{KV} \right)
+\end{aligned}$$
+</div>
+
+<blockquote>
+<p>Here, $\mathbf{u}_{t,i}$ denotes the output-projected representation of the i-th attention head.<br>The final output $\mathbf{u}_t$ is obtained by concatenating all $\mathbf{u}_{t,i}$.</p>
+</blockquote>
+<p>Note that matrix absorption is applied only during inference. During training, we need to explicitly reconstruct the values for backpropagation.</p>
+<h2 id="Decoupled-Rotary-Position-Embedding"><a href="#Decoupled-Rotary-Position-Embedding" class="headerlink" title="Decoupled Rotary Position Embedding"></a>Decoupled Rotary Position Embedding</h2><p>While the low-rank compression strategy successfully reduces the KV cache size, it introduces a critical conflict with <strong>Rotary Position Embedding (RoPE)</strong>.</p>
+<h3 id="The-Conflict-RoPE-vs-Matrix-Absorption"><a href="#The-Conflict-RoPE-vs-Matrix-Absorption" class="headerlink" title="The Conflict: RoPE vs. Matrix Absorption"></a>The Conflict: RoPE vs. Matrix Absorption</h3><p>As mentioned in the DeepSeek-V2 paper, standard RoPE is position-sensitive and applies a rotation matrix to the Query and Key vectors. If we apply RoPE directly to the up-projected Keys $\mathbf{k}_j^C$, the rotation matrix $\mathcal{R}_j$ (which relates to the current token position) would be inserted between the query vector and the up-projection matrix $W^{UK}$:</p>
+<div>
+\[
+\text{Score}_{t,j}
+=
+\mathbf{q}_t^\top\left(\mathcal{R}_j\, W^{UK}\mathbf{c}_j^{KV}\right)
+\]
+</div>
+
+<p>Because <strong>matrix multiplication is not commutative</strong>, we cannot simply move the position-dependent rotation matrix $\mathcal{R}_j$ past the fixed parameters matrix $W^{UK}$ to merge it with $\mathbf{q}$. This implies that $W^{UK}$ cannot be absorbed into $W^Q$(more precise, $W^{UQ}$) during inference. If we were to persist with this approach, we would be forced to recompute the high-dimensional keys for all prefix tokens at every decoding step to apply the correct positional rotation, which would significantly hinder inference efficiency.</p>
+<h3 id="The-Solution-Decoupled-RoPE-Strategy"><a href="#The-Solution-Decoupled-RoPE-Strategy" class="headerlink" title="The Solution: Decoupled RoPE Strategy"></a>The Solution: Decoupled RoPE Strategy</h3><p>To resolve this, DeepSeek-V2 employs a Decoupled RoPE strategy. The core idea is to separate the query and key vectors into two parts: a Content Part for semantic features and a RoPE Part for positional information. The generation of these vectors is defined as follows:</p>
+<ol>
+<li><p>Decoupled Queries (Multi-Head): For the queries, we generate a separate RoPE vector $\mathbf{q}_{t,i}^R$ for each attention head $i$. This maintains the multi-head diversity for positional attention.</p>
+<div>
+\[
+\left[
+\mathbf{q}_{t,1}^R;\,
+\mathbf{q}_{t,2}^R;\,
+\dots;\,
+\mathbf{q}_{t,n_h}^R
+\right]
+=
+\mathbf{q}_t^R
+=
+\mathrm{RoPE}\!\left(W^{QR}\mathbf{c}_t^Q\right)
+\]
+</div>
+</li>
+<li><p>Decoupled Keys (Shared-Head): For the keys, we generate a single RoPE vector $\mathbf{k}_t^R$ that is shared across all attention heads.</p>
+</li>
+</ol>
+<div>
+$$\mathbf{k}_t^R = \text{RoPE}(W^{KR} \mathbf{h}_t)$$
+</div>
+
+<blockquote>
+<p>MLA minimizes the additional memory required to store positional information by sharing the RoPE key $\mathbf{k}_t^R$ across all heads (instead of having $n_h$ distinct RoPE keys).</p>
+</blockquote>
+<h3 id="Caching-during-inference"><a href="#Caching-during-inference" class="headerlink" title="Caching during inference"></a>Caching during inference</h3><p>In MLA, we do not cache the full per-head keys/values. Instead, for each past position $j$ we cache:</p>
+<ul>
+<li>the latent KV vector $\mathbf{c}_j^{KV} \in \mathbb{R}^{d_c}$, and</li>
+<li>the shared RoPE key $\mathbf{k}_j^R \in \mathbb{R}^{d_h^R}$.</li>
+</ul>
+<h3 id="Final-Attention-Calculation"><a href="#Final-Attention-Calculation" class="headerlink" title="Final Attention Calculation"></a>Final Attention Calculation</h3><p>During the attention phase, the queries and keys are concatenations of their respective content and RoPE parts.<br>For the query at position $t$ and head $i$:</p>
+<div>
+$$\mathbf{q}_{t,i} = [\mathbf{q}_{t,i}^C \,;\, \mathbf{q}_{t,i}^R]$$
+</div>
+
+<p>For the key at position $j$ (where $j \le t$):</p>
+<div>
+$$\mathbf{k}_{j,i} = [\mathbf{k}_{j,i}^C \,;\, \mathbf{k}_{j}^R]$$
+</div>
+
+<p>The scaled attention score between query $t$ and key $j$ for head $i$ is computed as:</p>
+<div>$$\begin{aligned}
+\text{Score}_{t,j,i} &amp;= \frac{\mathbf{q}_{t,i}^\top \mathbf{k}_{j,i}}{\sqrt{d_h + d_h^R}} \\
+&amp;= \frac{(\mathbf{q}_{t,i}^C)^\top \mathbf{k}_{j,i}^C + (\mathbf{q}_{t,i}^R)^\top \mathbf{k}_{j}^R}{\sqrt{d_h + d_h^R}}
+\end{aligned}$$
+</div>
+
+
+
+<p>By expanding the dot product, we can see why MLA is efficient:</p>
+<ol>
+<li>Content Term $(\mathbf{q}_{t,i}^C)^\top \mathbf{k}_{j,i}^C$: Can be computed using Matrix Absorption (using latent vectors), avoiding explicit key reconstruction.</li>
+<li>RoPE Term $(\mathbf{q}_{t,i}^R)^\top \mathbf{k}_{j}^R$: Computed explicitly using the small, cached RoPE keys.</li>
+</ol>
+<p>The normalized attention weights are obtained via softmax over all past positions $j$:</p>
+<div>
+$$\alpha_{t,j,i} = \text{Softmax}_j(\text{Score}_{t,j,i})$$
+</div>
+
+<p>Finally, the attention output for head $i$ is computed using the values (which are also reconstructed from latent vectors):</p>
+<div>
+$$\mathbf{o}_{t,i} = \sum_{j=1}^{t} \alpha_{t,j,i} \mathbf{v}_{j,i}^C$$
+</div>
+
+<p>The outputs from all heads are concatenated and projected to form the final output:</p>
+<div>
+$$\mathbf{u}_t = W^O [\mathbf{o}_{t,1}; \mathbf{o}_{t,2}; \dots; \mathbf{o}_{t,n_h}]$$
+</div>
+
+<p>The illustration below shows the MLA flow:</p>
+<p align="center">
+  <img src="/images/mla.png" alt="MLA Flow" width="500">
+</p>
+
+
+<h2 id="Comparison-of-Key-Value-Cache"><a href="#Comparison-of-Key-Value-Cache" class="headerlink" title="Comparison of Key-Value Cache"></a>Comparison of Key-Value Cache</h2><p>The table below compares the KV cache size per token across different attention mechanisms:</p>
 <div class="table-container">
 <table>
 <thead>
 <tr>
-<th>符號</th>
-<th>說明</th>
-<th>維度</th>
+<th style="text-align:left">Attention Mechanism</th>
+<th style="text-align:left">KV Cache per Token (# Elements)</th>
+<th style="text-align:left">Capability</th>
 </tr>
 </thead>
 <tbody>
 <tr>
-<td>$X$</td>
-<td>輸入矩陣</td>
-<td>(m, n_input)</td>
+<td style="text-align:left"><strong>MHA</strong></td>
+<td style="text-align:left">$2 \times n_h \times d_h \times l$</td>
+<td style="text-align:left">Strong</td>
 </tr>
 <tr>
-<td>$W^{(1)}$</td>
-<td>第一層的權重矩陣</td>
-<td>(n_input, n_hidden)</td>
+<td style="text-align:left"><strong>GQA</strong></td>
+<td style="text-align:left">$2 \times n_g \times d_h \times l$</td>
+<td style="text-align:left">Moderate</td>
 </tr>
 <tr>
-<td>$B^{(1)}$</td>
-<td>第一層的偏差矩陣</td>
-<td>(1, n_hidden)</td>
+<td style="text-align:left"><strong>MQA</strong></td>
+<td style="text-align:left">$2 \times 1 \times d_h \times l$</td>
+<td style="text-align:left">Weak</td>
 </tr>
 <tr>
-<td>$Z^{(1)}$</td>
-<td>第一層的線性組合</td>
-<td>(m, n_hidden)</td>
-</tr>
-<tr>
-<td>$A^{(1)}$</td>
-<td>第一層的激活函數結果</td>
-<td>(m, n_hidden)</td>
-</tr>
-<tr>
-<td>$W^{(2)}$</td>
-<td>第二層的權重矩陣</td>
-<td>(n_hidden, n_output)</td>
-</tr>
-<tr>
-<td>$B^{(2)}$</td>
-<td>第二層的偏差矩陣</td>
-<td>(1, n_output)</td>
-</tr>
-<tr>
-<td>$Z^{(2)}$</td>
-<td>第二層的線性組合</td>
-<td>(m, n_output)</td>
-</tr>
-<tr>
-<td>$A^{(2)}$</td>
-<td>第二層的激活函數結果</td>
-<td>(m, n_output)</td>
+<td style="text-align:left"><strong>MLA</strong></td>
+<td style="text-align:left">$(d_c + d_h^R) \times l \approx \frac{9}{2} \times d_h \times l$</td>
+<td style="text-align:left"><strong>Stronger</strong></td>
 </tr>
 </tbody>
 </table>
 </div>
-<p>其中，m為Batch Size，n_input為輸入的特徵數，n_hidden為隱藏層的Neuron數，n_output為輸出的Neuron數。</p>
-<h2 id="Forward"><a href="#Forward" class="headerlink" title="Forward"></a><strong>Forward</strong></h2><figure class="highlight python"><table><tr><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">forward</span>(<span class="params">self, x</span>):</span><br><span class="line">    <span class="string">&quot;&quot;&quot;</span></span><br><span class="line"><span class="string">    Parameters:</span></span><br><span class="line"><span class="string">        x (numpy.ndarray): Input matrix of shape (batch_size, n_input).</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">    Returns:</span></span><br><span class="line"><span class="string">        numpy.ndarray: Output matrix of shape (batch_size, n_output).</span></span><br><span class="line"><span class="string">    &quot;&quot;&quot;</span></span><br><span class="line">    <span class="variable language_">self</span>.z1 = np.matmul(x, <span class="variable language_">self</span>.w1) + <span class="variable language_">self</span>.b1</span><br><span class="line">    <span class="variable language_">self</span>.a1 = <span class="variable language_">self</span>.ReLU(<span class="variable language_">self</span>.z1)</span><br><span class="line">    <span class="variable language_">self</span>.z2 = np.matmul(<span class="variable language_">self</span>.a1, <span class="variable language_">self</span>.w2) + <span class="variable language_">self</span>.b2</span><br><span class="line">    <span class="variable language_">self</span>.a2 = <span class="variable language_">self</span>.z2</span><br><span class="line">    <span class="keyword">return</span> <span class="variable language_">self</span>.a2</span><br></pre></td></tr></table></figure>
-<p>在這裡選用ReLU作為隱藏層的Activation Function。</p>
-<h2 id="Backward"><a href="#Backward" class="headerlink" title="Backward"></a><strong>Backward</strong></h2><figure class="highlight python"><table><tr><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">backward</span>(<span class="params">self, X, y, pred, lr</span>):</span><br><span class="line">    <span class="string">&quot;&quot;&quot;</span></span><br><span class="line"><span class="string">    Parameters:</span></span><br><span class="line"><span class="string">        X (numpy.ndarray): Input matrix of shape (batch_size, n_input).</span></span><br><span class="line"><span class="string">        y (numpy.ndarray): Target matrix of shape (batch_size, n_output).</span></span><br><span class="line"><span class="string">        pred (numpy.ndarray): Output matrix of shape (batch_size, n_output).</span></span><br><span class="line"><span class="string">        lr (float): Learning rate.</span></span><br><span class="line"><span class="string">    &quot;&quot;&quot;</span></span><br><span class="line">    <span class="comment"># STEP 1</span></span><br><span class="line">    batch_size = X.shape[<span class="number">0</span>]</span><br><span class="line">    delta_output = <span class="number">2</span> * (pred - y) / batch_size</span><br><span class="line"></span><br><span class="line">    <span class="comment"># STEP 2</span></span><br><span class="line">    dw2 = np.matmul(<span class="variable language_">self</span>.a1.T, delta_output)</span><br><span class="line">    db2 = np.<span class="built_in">sum</span>(delta_output, axis=<span class="number">0</span>, keepdims=<span class="literal">True</span>)</span><br><span class="line"></span><br><span class="line">    <span class="comment"># STEP 3</span></span><br><span class="line">    delta_hidden = np.matmul(delta_output, <span class="variable language_">self</span>.w2.T) * <span class="variable language_">self</span>.ReLU_derivative(<span class="variable language_">self</span>.z1)</span><br><span class="line"></span><br><span class="line">    <span class="comment"># STEP 4</span></span><br><span class="line">    dw1 = np.matmul(X.T, delta_hidden)</span><br><span class="line">    db1 = np.<span class="built_in">sum</span>(delta_hidden, axis=<span class="number">0</span>, keepdims=<span class="literal">True</span>)</span><br><span class="line"></span><br><span class="line">    <span class="comment"># UPDATE</span></span><br><span class="line">    <span class="variable language_">self</span>.w1 -= lr * dw1</span><br><span class="line">    <span class="variable language_">self</span>.b1 -= lr * db1</span><br><span class="line">    <span class="variable language_">self</span>.w2 -= lr * dw2</span><br><span class="line">    <span class="variable language_">self</span>.b2 -= lr * db2</span><br></pre></td></tr></table></figure>
-<p>這裡的ReLU_derivative是ReLU的導函數（也可以換成其他Activation Function，但記得要differentiable）。<br>$ \delta_k  \text{加了} \frac{2}{\text{batch_size}}$ 常數是因為真正MSE函式應為 <code>np.mean((A - Y) ** 2)</code>，這個mean是指將$\textbf{所有資料}$的Square Error取平均，而上面的MSE公式則是為了讓$\textbf{單一資料}$Gradient計算時會比較漂亮，所以乘了一個$\frac{1}{2}$。<br>當初在寫Backward時一直不懂矩陣到底要怎麼乘，但後來發現只要想清楚上面的公式，再對照好矩陣維度就可以了！</p>
-<h2 id="Training"><a href="#Training" class="headerlink" title="Training"></a><strong>Training</strong></h2><p>再來來寫一個簡單的Training Function：<br><figure class="highlight python"><table><tr><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">train</span>(<span class="params">self, X, y, epochs=<span class="number">1000</span>, lr=<span class="number">0.01</span>, verbose=<span class="number">10</span></span>):</span><br><span class="line">   <span class="string">&quot;&quot;&quot;</span></span><br><span class="line"><span class="string">   Parameters:</span></span><br><span class="line"><span class="string">       X (numpy.ndarray): Input matrix of shape (batch_size, n_input).</span></span><br><span class="line"><span class="string">       y (numpy.ndarray): Target matrix of shape (batch_size, n_output).</span></span><br><span class="line"><span class="string">       epochs (int): Number of epochs.</span></span><br><span class="line"><span class="string">       lr (float): Learning rate.</span></span><br><span class="line"><span class="string">       verbose (int): Frequency of printing the loss</span></span><br><span class="line"><span class="string">   &quot;&quot;&quot;</span></span><br><span class="line">   <span class="keyword">for</span> epoch <span class="keyword">in</span> <span class="built_in">range</span>(epochs):</span><br><span class="line">       pred = <span class="variable language_">self</span>.forward(X)</span><br><span class="line">       loss = <span class="variable language_">self</span>.MSE(y, pred)</span><br><span class="line">       <span class="variable language_">self</span>.backward(X, y, pred, lr)</span><br><span class="line">       <span class="keyword">if</span> epoch % verbose == <span class="number">0</span>:</span><br><span class="line">           <span class="built_in">print</span>(<span class="string">f&quot;Epoch <span class="subst">&#123;epoch&#125;</span>, Loss: <span class="subst">&#123;loss:<span class="number">.6</span>f&#125;</span>&quot;</span>)</span><br></pre></td></tr></table></figure></p>
-<h1 id="Conclusion"><a href="#Conclusion" class="headerlink" title="Conclusion"></a><strong>Conclusion</strong></h1><p>這裡我以Regression為例，但實際上只要將Loss Function、Activation Function換掉，就可以應用在其他任務上。以下是一些常見的任務：</p>
-<div class="table-container">
-<table>
-<thead>
-<tr>
-<th><strong>Tasks</strong></th>
-<th><strong>輸出層 Activation Function</strong></th>
-<th><strong>Loss Function</strong></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>回歸（Regression）</strong></td>
-<td><code>Identity Function</code></td>
-<td><strong>Mean Squared Error</strong></td>
-</tr>
-<tr>
-<td><strong>二元分類（Binary Classification）</strong></td>
-<td><code>Sigmoid</code></td>
-<td><strong>Binary Cross-Entropy</strong></td>
-</tr>
-<tr>
-<td><strong>多類分類（Multi-Class Classification）</strong></td>
-<td><code>Softmax</code></td>
-<td><strong>Categorical Cross-Entropy</strong></td>
-</tr>
-</tbody>
-</table>
-</div>
-<p>再做一些微分時小小的修改就可以了。但我認為重點在於理解Backpropagation中使用Chain Rule的技巧，還有計算Partial Derivative的一些細節。</p>
+<p>Here, $n_h$ denotes the number of attention heads, $d_h$ denotes the dimension per attention head, $l$ denotes the number of layers, $n_g$ denotes the number of groups in GQA, and $d_c$ and $d_h^R$ denote the KV compression dimension and the per-head dimension of the decoupled queries and key in MLA, respectively. The amount of KV cache is measured by the number of elements, regardless of the storage precision. For DeepSeek-V2, $d_c$ is set to $4d_h$ and $d_h^R$ is set to $\frac{d_h}{2}$. So, its KV cache is equal to GQA with only 2.25 groups, but its performance is stronger than MHA.</p>
+<h1 id="Reference"><a href="#Reference" class="headerlink" title="Reference"></a>Reference</h1><ul>
+<li><a href="https://arxiv.org/pdf/2405.04434">DeepSeek-V2: A Strong, Economical, and Efficient Mixture-of-Experts Language Model</a></li>
+<li><a href="https://blog.csdn.net/jinzhuojun/article/details/145392128">DeepSeek V2/V3中的MLA和Matrix Absorption</a></li>
+</ul>
 ]]></content>
       <categories>
         <category>Note</category>
       </categories>
       <tags>
-        <tag>code</tag>
-        <tag>Machine Learning</tag>
+        <tag>AI Efficiency</tag>
+        <tag>LLMs</tag>
       </tags>
   </entry>
   <entry>
@@ -458,8 +512,8 @@ $$
         <category>Note</category>
       </categories>
       <tags>
-        <tag>Machine Learning</tag>
         <tag>AI Efficiency</tag>
+        <tag>Machine Learning</tag>
       </tags>
   </entry>
   <entry>
@@ -800,6 +854,213 @@ $$
       </categories>
       <tags>
         <tag>Misc</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>Backpropagation 反向傳播</title>
+    <url>/2025/02/17/backpropagation/</url>
+    <content><![CDATA[<p>學PyTorch不如自己刻一次Backpropagation。<br><span id="more"></span></p>
+<h1 id="Opening"><a href="#Opening" class="headerlink" title="Opening"></a><strong>Opening</strong></h1><p>本篇文章是建立在對Gradient Descent、Neural Network架構有基礎了解的前提下，介紹如何透過Backpropagation來更新神經網路的參數，並且使用NumPy手刻出Backpropagation的過程。</p>
+<h1 id="Forward-向前傳播"><a href="#Forward-向前傳播" class="headerlink" title="Forward 向前傳播"></a><strong>Forward 向前傳播</strong></h1><p>首先，先來看神經網路的基本架構：</p>
+<p><p align="center">
+  <img src="/images/nn.png" alt="Credit: 4o">
+</p><br>這是一個簡易的神經網路，輸入、隱藏層皆有兩個Neurons加上一個Bias，輸出則有一個Neurons。對於某Neuron $X_i$，向前傳播過程可以寫成：</p>
+<div>
+$$
+\begin{aligned}
+Z^{(1)}_j &= \sum_{i=1}^{D} W^{(1)}_{ij}X_i + B^{(1)}_j \\
+A^{(1)}_j &= h(Z^{(1)}_j) \\
+Z^{(2)}_k &= \sum_{j=1}^{M} W^{(2)}_{jk}A^{(1)}_j + B^{(2)}_k \\
+A^{(2)}_k &= Z^{(2)}_k \\
+
+\text{E}(W,B) &= \frac{1}{2 } \sum_{k=1}^{K} (A^{(2)}_k - Y_k)^2 
+\end{aligned}
+$$
+</div>
+這裡的$h$表示隱藏層的激活函數（Activation Function），這裡因為以Regression為例，所以輸出層的激活函數為Identity Function。$\text{E}$表示Loss Function，這裡以Mean Squared Error為例。
+
+若僅考慮Variables/Activations的Dependency，可以寫成：
+<div>
+$$
+\begin{aligned}
+X_i \rightarrow W^{(1)}_{ij} \rightarrow Z^{(1)}_j \rightarrow A^{(1)}_j \rightarrow W^{(2)}_{jk} \rightarrow Z^{(2)}_k \rightarrow A^{(2)}_k \leftrightarrow Y_k \rightarrow \text{E}
+\end{aligned}
+$$
+</div>
+
+<h1 id="Backward-反向傳播"><a href="#Backward-反向傳播" class="headerlink" title="Backward 反向傳播"></a><strong>Backward 反向傳播</strong></h1><p>接著，我們要來更新$W^{(2)}$的參數，我們的目標是計算$\frac{\partial E}{\partial W^{(2)}_{jk}}$，但這個東西很難直接算出來，因此我們考慮使用<strong>Chain Rule</strong>，透過上式的Dependency關係將其拆成 :</p>
+<div>
+$$
+\begin{aligned}
+\frac{\partial E}{\partial W^{(2)}_{jk}} &= \frac{\partial E}{\partial Z^{(2)}_k} \cdot \frac{\partial Z^{(2)}_k}{\partial W^{(2)}_{jk}} \\
+\end{aligned}
+$$  
+</div>
+
+<p>透過一些簡單的偏微分計算，我們得到：</p>
+<div>
+$$
+\begin{aligned}
+\frac{\partial E}{\partial Z^{(2)}_k} &= A^{(2)}_k - Y_k = \delta_{k} \\
+\frac{\partial Z^{(2)}_k}{\partial W^{(2)}_{jk}} &= A^{(1)}_j
+\end{aligned}
+$$
+</div>
+接著再次使用Chain Rule，分解$\frac{\partial E}{\partial W^{(1)}_{ij}}$：
+<div>
+$$
+\begin{aligned}
+\frac{\partial E}{\partial W^{(1)}_{ij}} &= 
+\sum_{k=1}^{K} \left(
+\frac{\partial E}{\partial Z^{(2)}_k} \cdot
+\frac{\partial Z^{(2)}_k}{\partial Z^{(1)}_j} \cdot
+\frac{\partial Z^{(1)}_j}{\partial W^{(1)}_{ij}} \right) \\
+\end{aligned}
+$$
+</div>
+再複習一次大一微積分：
+<div>
+$$
+\begin{aligned}
+\frac{\partial E}{\partial Z^{(2)}_k} &= \delta_{k} \\
+\frac{\partial Z^{(2)}_k}{\partial Z^{(1)}_j} &= W^{(2)}_{jk} \cdot h^{'}(Z^{(1)}_j) \\
+\frac{\partial Z^{(1)}_j}{\partial W^{(1)}_{ij}} &= X_i
+\end{aligned}
+$$
+</div>
+
+<p>其中，我們定義第一層的誤差信號 $\delta_j$ 為：</p>
+<div>
+$$
+\begin{aligned}
+\delta_j &= \frac{\partial E}{\partial Z^{(1)}_j} = \sum_{k=1}^{K} W^{(2)}_{jk} \delta_k h'(Z^{(1)}_j)
+\end{aligned}
+$$
+</div>
+
+<p>將上述幾式整理，我們可以得到：</p>
+<div>
+$$
+\begin{aligned}
+\frac{\partial E}{\partial W^{(2)}_{jk}} &= \delta_{k} \cdot A^{(1)}_j \\
+\frac{\partial E}{\partial W^{(1)}_{ij}} &= \delta_{j} \cdot X_i
+\end{aligned}
+$$
+</div>
+
+<p>對於Bias的Gradient，其實就是：</p>
+<div>
+$$
+\begin{aligned}
+\frac{\partial E}{\partial B^{(2)}_{k}} &= \delta_{k} \\
+\frac{\partial E}{\partial B^{(1)}_{j}} &= \delta_{j}
+\end{aligned}
+$$
+</div>
+
+<p>如此一來我們就算完最複雜的部分了，可以進入實作了！</p>
+<h1 id="Implementation"><a href="#Implementation" class="headerlink" title="Implementation"></a><strong>Implementation</strong></h1><p>在開始實作前，我們先釐清各個矩陣的維度：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th>符號</th>
+<th>說明</th>
+<th>維度</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>$X$</td>
+<td>輸入矩陣</td>
+<td>(m, n_input)</td>
+</tr>
+<tr>
+<td>$W^{(1)}$</td>
+<td>第一層的權重矩陣</td>
+<td>(n_input, n_hidden)</td>
+</tr>
+<tr>
+<td>$B^{(1)}$</td>
+<td>第一層的偏差矩陣</td>
+<td>(1, n_hidden)</td>
+</tr>
+<tr>
+<td>$Z^{(1)}$</td>
+<td>第一層的線性組合</td>
+<td>(m, n_hidden)</td>
+</tr>
+<tr>
+<td>$A^{(1)}$</td>
+<td>第一層的激活函數結果</td>
+<td>(m, n_hidden)</td>
+</tr>
+<tr>
+<td>$W^{(2)}$</td>
+<td>第二層的權重矩陣</td>
+<td>(n_hidden, n_output)</td>
+</tr>
+<tr>
+<td>$B^{(2)}$</td>
+<td>第二層的偏差矩陣</td>
+<td>(1, n_output)</td>
+</tr>
+<tr>
+<td>$Z^{(2)}$</td>
+<td>第二層的線性組合</td>
+<td>(m, n_output)</td>
+</tr>
+<tr>
+<td>$A^{(2)}$</td>
+<td>第二層的激活函數結果</td>
+<td>(m, n_output)</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>其中，m為Batch Size，n_input為輸入的特徵數，n_hidden為隱藏層的Neuron數，n_output為輸出的Neuron數。</p>
+<h2 id="Forward"><a href="#Forward" class="headerlink" title="Forward"></a><strong>Forward</strong></h2><figure class="highlight python"><table><tr><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">forward</span>(<span class="params">self, x</span>):</span><br><span class="line">    <span class="string">&quot;&quot;&quot;</span></span><br><span class="line"><span class="string">    Parameters:</span></span><br><span class="line"><span class="string">        x (numpy.ndarray): Input matrix of shape (batch_size, n_input).</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">    Returns:</span></span><br><span class="line"><span class="string">        numpy.ndarray: Output matrix of shape (batch_size, n_output).</span></span><br><span class="line"><span class="string">    &quot;&quot;&quot;</span></span><br><span class="line">    <span class="variable language_">self</span>.z1 = np.matmul(x, <span class="variable language_">self</span>.w1) + <span class="variable language_">self</span>.b1</span><br><span class="line">    <span class="variable language_">self</span>.a1 = <span class="variable language_">self</span>.ReLU(<span class="variable language_">self</span>.z1)</span><br><span class="line">    <span class="variable language_">self</span>.z2 = np.matmul(<span class="variable language_">self</span>.a1, <span class="variable language_">self</span>.w2) + <span class="variable language_">self</span>.b2</span><br><span class="line">    <span class="variable language_">self</span>.a2 = <span class="variable language_">self</span>.z2</span><br><span class="line">    <span class="keyword">return</span> <span class="variable language_">self</span>.a2</span><br></pre></td></tr></table></figure>
+<p>在這裡選用ReLU作為隱藏層的Activation Function。</p>
+<h2 id="Backward"><a href="#Backward" class="headerlink" title="Backward"></a><strong>Backward</strong></h2><figure class="highlight python"><table><tr><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">backward</span>(<span class="params">self, X, y, pred, lr</span>):</span><br><span class="line">    <span class="string">&quot;&quot;&quot;</span></span><br><span class="line"><span class="string">    Parameters:</span></span><br><span class="line"><span class="string">        X (numpy.ndarray): Input matrix of shape (batch_size, n_input).</span></span><br><span class="line"><span class="string">        y (numpy.ndarray): Target matrix of shape (batch_size, n_output).</span></span><br><span class="line"><span class="string">        pred (numpy.ndarray): Output matrix of shape (batch_size, n_output).</span></span><br><span class="line"><span class="string">        lr (float): Learning rate.</span></span><br><span class="line"><span class="string">    &quot;&quot;&quot;</span></span><br><span class="line">    <span class="comment"># STEP 1</span></span><br><span class="line">    batch_size = X.shape[<span class="number">0</span>]</span><br><span class="line">    delta_output = <span class="number">2</span> * (pred - y) / batch_size</span><br><span class="line"></span><br><span class="line">    <span class="comment"># STEP 2</span></span><br><span class="line">    dw2 = np.matmul(<span class="variable language_">self</span>.a1.T, delta_output)</span><br><span class="line">    db2 = np.<span class="built_in">sum</span>(delta_output, axis=<span class="number">0</span>, keepdims=<span class="literal">True</span>)</span><br><span class="line"></span><br><span class="line">    <span class="comment"># STEP 3</span></span><br><span class="line">    delta_hidden = np.matmul(delta_output, <span class="variable language_">self</span>.w2.T) * <span class="variable language_">self</span>.ReLU_derivative(<span class="variable language_">self</span>.z1)</span><br><span class="line"></span><br><span class="line">    <span class="comment"># STEP 4</span></span><br><span class="line">    dw1 = np.matmul(X.T, delta_hidden)</span><br><span class="line">    db1 = np.<span class="built_in">sum</span>(delta_hidden, axis=<span class="number">0</span>, keepdims=<span class="literal">True</span>)</span><br><span class="line"></span><br><span class="line">    <span class="comment"># UPDATE</span></span><br><span class="line">    <span class="variable language_">self</span>.w1 -= lr * dw1</span><br><span class="line">    <span class="variable language_">self</span>.b1 -= lr * db1</span><br><span class="line">    <span class="variable language_">self</span>.w2 -= lr * dw2</span><br><span class="line">    <span class="variable language_">self</span>.b2 -= lr * db2</span><br></pre></td></tr></table></figure>
+<p>這裡的ReLU_derivative是ReLU的導函數（也可以換成其他Activation Function，但記得要differentiable）。<br>$ \delta_k  \text{加了} \frac{2}{\text{batch_size}}$ 常數是因為真正MSE函式應為 <code>np.mean((A - Y) ** 2)</code>，這個mean是指將$\textbf{所有資料}$的Square Error取平均，而上面的MSE公式則是為了讓$\textbf{單一資料}$Gradient計算時會比較漂亮，所以乘了一個$\frac{1}{2}$。<br>當初在寫Backward時一直不懂矩陣到底要怎麼乘，但後來發現只要想清楚上面的公式，再對照好矩陣維度就可以了！</p>
+<h2 id="Training"><a href="#Training" class="headerlink" title="Training"></a><strong>Training</strong></h2><p>再來來寫一個簡單的Training Function：<br><figure class="highlight python"><table><tr><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">train</span>(<span class="params">self, X, y, epochs=<span class="number">1000</span>, lr=<span class="number">0.01</span>, verbose=<span class="number">10</span></span>):</span><br><span class="line">   <span class="string">&quot;&quot;&quot;</span></span><br><span class="line"><span class="string">   Parameters:</span></span><br><span class="line"><span class="string">       X (numpy.ndarray): Input matrix of shape (batch_size, n_input).</span></span><br><span class="line"><span class="string">       y (numpy.ndarray): Target matrix of shape (batch_size, n_output).</span></span><br><span class="line"><span class="string">       epochs (int): Number of epochs.</span></span><br><span class="line"><span class="string">       lr (float): Learning rate.</span></span><br><span class="line"><span class="string">       verbose (int): Frequency of printing the loss</span></span><br><span class="line"><span class="string">   &quot;&quot;&quot;</span></span><br><span class="line">   <span class="keyword">for</span> epoch <span class="keyword">in</span> <span class="built_in">range</span>(epochs):</span><br><span class="line">       pred = <span class="variable language_">self</span>.forward(X)</span><br><span class="line">       loss = <span class="variable language_">self</span>.MSE(y, pred)</span><br><span class="line">       <span class="variable language_">self</span>.backward(X, y, pred, lr)</span><br><span class="line">       <span class="keyword">if</span> epoch % verbose == <span class="number">0</span>:</span><br><span class="line">           <span class="built_in">print</span>(<span class="string">f&quot;Epoch <span class="subst">&#123;epoch&#125;</span>, Loss: <span class="subst">&#123;loss:<span class="number">.6</span>f&#125;</span>&quot;</span>)</span><br></pre></td></tr></table></figure></p>
+<h1 id="Conclusion"><a href="#Conclusion" class="headerlink" title="Conclusion"></a><strong>Conclusion</strong></h1><p>這裡我以Regression為例，但實際上只要將Loss Function、Activation Function換掉，就可以應用在其他任務上。以下是一些常見的任務：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th><strong>Tasks</strong></th>
+<th><strong>輸出層 Activation Function</strong></th>
+<th><strong>Loss Function</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>回歸（Regression）</strong></td>
+<td><code>Identity Function</code></td>
+<td><strong>Mean Squared Error</strong></td>
+</tr>
+<tr>
+<td><strong>二元分類（Binary Classification）</strong></td>
+<td><code>Sigmoid</code></td>
+<td><strong>Binary Cross-Entropy</strong></td>
+</tr>
+<tr>
+<td><strong>多類分類（Multi-Class Classification）</strong></td>
+<td><code>Softmax</code></td>
+<td><strong>Categorical Cross-Entropy</strong></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>再做一些微分時小小的修改就可以了。但我認為重點在於理解Backpropagation中使用Chain Rule的技巧，還有計算Partial Derivative的一些細節。</p>
+]]></content>
+      <categories>
+        <category>Note</category>
+      </categories>
+      <tags>
+        <tag>code</tag>
+        <tag>Machine Learning</tag>
       </tags>
   </entry>
 </search>

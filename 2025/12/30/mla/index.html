@@ -1,0 +1,348 @@
+<!doctype html>
+<html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1"><meta><title>Multi-head Latent Attention - bonginn&#039;s blog</title><link rel="manifest" href="/manifest.json"><meta name="application-name" content="bonginn&#039;s blog"><meta name="msapplication-TileImage" content="/img/favicon.svg"><meta name="apple-mobile-web-app-capable" content="yes"><meta name="apple-mobile-web-app-title" content="bonginn&#039;s blog"><meta name="apple-mobile-web-app-status-bar-style" content="default"><meta name="description" content="This is a note about DeepSeek-V2 Multi-Head Latent Attention."><meta property="og:type" content="blog"><meta property="og:title" content="Multi-head Latent Attention"><meta property="og:url" content="https://bonginn.github.io/2025/12/30/mla/"><meta property="og:site_name" content="bonginn&#039;s blog"><meta property="og:description" content="This is a note about DeepSeek-V2 Multi-Head Latent Attention."><meta property="og:locale" content="en_US"><meta property="og:image" content="https://bonginn.github.io/images/dsattn-1.png"><meta property="og:image" content="https://bonginn.github.io/images/mla.png"><meta property="article:published_time" content="2025-12-29T16:00:00.000Z"><meta property="article:modified_time" content="2026-01-12T12:30:53.652Z"><meta property="article:author" content="Pang-Chun"><meta property="article:tag" content="AI Efficiency"><meta property="article:tag" content="LLMs"><meta property="twitter:card" content="summary"><meta property="twitter:image:src" content="https://bonginn.github.io/images/dsattn-1.png"><script type="application/ld+json">{"@context":"https://schema.org","@type":"BlogPosting","mainEntityOfPage":{"@type":"WebPage","@id":"https://bonginn.github.io/2025/12/30/mla/"},"headline":"Multi-head Latent Attention","image":["https://bonginn.github.io/images/dsattn-1.png","https://bonginn.github.io/images/mla.png"],"datePublished":"2025-12-29T16:00:00.000Z","dateModified":"2026-01-12T12:30:53.652Z","author":{"@type":"Person","name":"Pang-Chun"},"publisher":{"@type":"Organization","name":"bonginn's blog","logo":{"@type":"ImageObject","url":"https://bonginn.github.io/img/logo.svg"}},"description":"This is a note about DeepSeek-V2 Multi-Head Latent Attention."}</script><link rel="canonical" href="https://bonginn.github.io/2025/12/30/mla/"><link rel="icon" href="/img/favicon.svg"><link rel="stylesheet" href="https://use.fontawesome.com/releases/v6.0.0/css/all.css"><link data-pjax rel="stylesheet" href="https://cdn.jsdelivr.net/npm/highlight.js@11.7.0/styles/atom-one-light.css"><link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Ubuntu:wght@400;600&amp;family=Source+Code+Pro"><link data-pjax rel="stylesheet" href="/css/default.css"><style>body>.footer,body>.navbar,body>.section{opacity:0}</style><!--!--><!--!--><!--!--><!--!--><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/cookieconsent@3.1.1/build/cookieconsent.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/lightgallery@1.10.0/dist/css/lightgallery.min.css"><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/justifiedGallery@3.8.1/dist/css/justifiedGallery.min.css"><!--!--><!--!--><!--!--><!--!--><!--!--><style>.pace{-webkit-pointer-events:none;pointer-events:none;-webkit-user-select:none;-moz-user-select:none;user-select:none}.pace-inactive{display:none}.pace .pace-progress{background:#3273dc;position:fixed;z-index:2000;top:0;right:100%;width:100%;height:2px}</style><script src="https://cdn.jsdelivr.net/npm/pace-js@1.2.4/pace.min.js"></script><!--!--><!--!--><!-- hexo injector head_end start --><script>
+  (function () {
+      function switchTab() {
+          if (!location.hash) {
+            return;
+          }
+
+          const id = '#' + CSS.escape(location.hash.substring(1));
+          const $tabMenu = document.querySelector(`.tabs a[href="${id}"]`);
+          if (!$tabMenu) {
+            return;
+          }
+
+          const $tabMenuContainer = $tabMenu.parentElement.parentElement;
+          Array.from($tabMenuContainer.children).forEach($menu => $menu.classList.remove('is-active'));
+          Array.from($tabMenuContainer.querySelectorAll('a'))
+              .map($menu => document.getElementById($menu.getAttribute("href").substring(1)))
+              .forEach($content => $content.classList.add('is-hidden'));
+
+          if ($tabMenu) {
+              $tabMenu.parentElement.classList.add('is-active');
+          }
+          const $activeTab = document.querySelector(id);
+          if ($activeTab) {
+              $activeTab.classList.remove('is-hidden');
+          }
+      }
+      switchTab();
+      window.addEventListener('hashchange', switchTab, false);
+  })();
+  </script><!-- hexo injector head_end end --><meta name="generator" content="Hexo 7.3.0"></head><body class="is-2-column"><nav class="navbar navbar-main"><div class="container navbar-container"><div class="navbar-brand justify-content-center"><a class="navbar-item navbar-logo" href="/"><img src="/img/logo.svg" alt="bonginn&#039;s blog" height="28"></a></div><div class="navbar-menu"><div class="navbar-start"><a class="navbar-item" href="/">Home</a><a class="navbar-item" href="/archives">Archives</a><a class="navbar-item" href="/categories">Categories</a><a class="navbar-item" href="/tags">Tags</a><a class="navbar-item" href="/about">About</a></div><div class="navbar-end"><a class="navbar-item is-hidden-tablet catalogue" title="Catalogue" href="javascript:;"><i class="fas fa-list-ul"></i></a><a class="navbar-item search" title="Search" href="javascript:;"><i class="fas fa-search"></i></a><a class="navbar-item night" id="night-nav" title="Night Mode" href="javascript:;"><i class="fas fa-lightbulb" id="night-icon"></i></a></div></div></div></nav><section class="section"><div class="container"><div class="columns"><div class="column order-2 column-main is-8-tablet is-9-desktop is-9-widescreen"><div class="reading-progress" aria-hidden="true"><div class="reading-progress-bar" id="reading-progress-bar"></div></div><div class="card"><article class="card-content article" role="article"><h1 class="title is-3 is-size-4-mobile">Multi-head Latent Attention</h1><div class="article-meta is-size-7 is-uppercase level is-mobile"><div class="level-left"><span class="level-item"><i class="far fa-calendar-alt"> </i><time dateTime="2025-12-29T16:00:00.000Z" title="2025-12-29T16:00:00.000Z">2025-12-30</time></span><span class="level-item">│</span><span class="level-item"><i class="far fa-edit"></i>&nbsp;<time dateTime="2026-01-12T12:30:53.652Z" title="1/12/2026, 8:30:53 PM">2026-01-12</time></span><span class="level-item">│</span><span class="level-item"><i class="far fa-clock"></i> 16 minutes read</span><span class="level-item">│</span><span class="level-item"><i class="far fa-file-word"> </i>2363 words</span></div></div><div class="content"><p>This is a note about DeepSeek-V2 Multi-Head Latent Attention.<br><span id="more"></span></p>
+<h1 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h1><p>Large Language Models (LLMs) operate on a simple principle: <strong>Autoregressive Decoding</strong>. This means that the model generates text one token at a time, using the entire history of the conversation to predict the next word. However, this comes with a significant computational cost. To generate N-th token, the model needs the information of all previous N-1 tokens. Re-computing the entire attention states (Key and Value) at every single step would be prohibitively slow.<br>To address this issue, we usually use <strong>KV Cache</strong> to store the Key(K) and Value(V) vectors of all previous tokens in VRAM. At each decoding step, we only need to compute the K and V vectors for the current token, and append them into the KV Cache.<br>While caching K and V avoids re-computing, it introduces a memory bottleneck that scales linearly with sequence length:</p>
+<div>
+$$
+\begin{aligned}
+\text{KV Cache Size} &= 2 \times \text{Batch Size} \times \text{Sequence Length} \times \text{Layers}\times \text{Heads} \times \text{Hidden Size} \times \text{Type Width}\\
+\end{aligned}
+$$
+</div>
+
+<p>In practice, modern LLM inference is often <strong>memory-bandwidth bound</strong> rather than <strong>compute-bound</strong>, especially during long-context decoding stage.<br>While attention computation itself is highly optimized, repeatedly reading and writing large KV cache from GPU memory becomes the bottleneck. This observation motivates a series of techniques to reduce the memory footprint of the KV cache, such as MQA, GQA and MLA.</p>
+<h1 id="Existing-KV-Cache-Reduction-Techniques"><a href="#Existing-KV-Cache-Reduction-Techniques" class="headerlink" title="Existing KV Cache Reduction Techniques"></a>Existing KV Cache Reduction Techniques</h1><h2 id="Multi-Head-Attention-MHA"><a href="#Multi-Head-Attention-MHA" class="headerlink" title="Multi-Head Attention (MHA)"></a>Multi-Head Attention (MHA)</h2><p>In standard multi-head attention, each attention head maintains its own key and value projections.<br>For a sequence of length (L) and a model with (N) layers and (H) attention heads, the KV cache stores a distinct key-value pair for every token, layer, and head.</p>
+<div>
+$$
+\begin{aligned}
+\text{KV}_{\text{MHA}} \propto L \times N \times H \times d_h\\
+\end{aligned}
+$$
+</div>
+
+<p>While this design provides strong representational capacity, it leads to a large memory footprint during autoregressive decoding.<br>As the sequence length grows, reading and writing the KV cache becomes a dominant memory-bandwidth bottleneck.</p>
+<h2 id="Multi-Query-Attention-MQA"><a href="#Multi-Query-Attention-MQA" class="headerlink" title="Multi-Query Attention (MQA)"></a>Multi-Query Attention (MQA)</h2><p>Multi-Query Attention reduces the KV cache size by sharing a single set of keys and values across all query heads.<br>Each attention head still computes its own query, but all heads utilize the same key-value pairs.</p>
+<div>
+$$
+\begin{aligned}
+\text{KV}_{\text{MQA}} \propto L \times N \times d_h\\
+\end{aligned}
+$$
+</div>
+
+<p>By removing the dependency on the number of attention heads, MQA significantly reduces the memory footprint of the KV cache.<br>However, this aggressive sharing limits the diversity of attention patterns across heads, which may degrade model quality in some settings.</p>
+<h2 id="Grouped-Query-Attention-GQA"><a href="#Grouped-Query-Attention-GQA" class="headerlink" title="Grouped Query Attention (GQA)"></a>Grouped Query Attention (GQA)</h2><p>Grouped-Query Attention is similar to MQA, but it generalizes MQA by allowing multiple groups of query heads, where each group shares a set of keys and values.</p>
+<div>
+$$
+\begin{aligned}
+\text{KV}_{\text{GQA}} \propto L \times N \times H_{kv} \times d_h\\
+\end{aligned}
+$$
+</div>
+
+<p>where $H_{kv}$ is the number of key-value heads, and $H_q$ is the number of query heads.</p>
+<p>Compared to MHA, GQA reduces the KV cache size by a constant factor of $\frac{H_{kv}}{H_q}$, while preserving more expressive power than MQA. We can see that GQA is a generalization of MQA. As a result, GQA has been widely adopted in large-scale models to balance memory efficiency and model quality.</p>
+<p>Both MQA and GQA reduce the KV cache size by decreasing the number of heads stored. MLA, however, takes a completely different approach: instead of cutting down the number of heads, it changes the representation of the cache itself. The question shifts from <strong>how many heads to cache</strong> to <strong>what to cache</strong>.</p>
+<h1 id="Multi-Head-Latent-Attention-MLA"><a href="#Multi-Head-Latent-Attention-MLA" class="headerlink" title="Multi-Head Latent Attention (MLA)"></a>Multi-Head Latent Attention (MLA)</h1><h2 id="Low-Rank-Key-Value-Joint-Compression"><a href="#Low-Rank-Key-Value-Joint-Compression" class="headerlink" title="Low-Rank Key-Value Joint Compression"></a>Low-Rank Key-Value Joint Compression</h2><p>The core innovation of MLA lies in its compression strategy. Unlike standard MHA where each head has a distinct projection matrix for Keys and Values, MLA projects the input hidden state into a <strong>joint compressed latent vector</strong>.<br>Let $h_t$ be the input hidden state at time $t$. MLA performs a down-projection to obtain the compressed latent vector $c_{\text{KV}}$: </p>
+<div>$$\mathbf{c}_t^{KV} = W^{DKV} \mathbf{h}_t$$</div>
+
+<p>Here, $\mathbf{c}_t^{KV} \in \mathbb{R}^{d_c}$ is the compressed latent vector, and $d_c$ is the compression dimension. Crucially, $d_c$ is significantly smaller than the total dimension of all heads in standard MHA ($d_c \ll d_h n_h$).<br>To generate the Keys and Values used for attention computation, we mathematically “up-project” this latent vector:</p>
+<div>
+\[
+\begin{aligned}
+\left[\mathbf{k}_{t,1}^C;\, \mathbf{k}_{t,2}^C;\, \dots;\, \mathbf{k}_{t,n_h}^C\right]
+&= \mathbf{k}_t^C
+= W^{UK} \mathbf{c}_t^{KV} \\
+\left[\mathbf{v}_{t,1}^C;\, \mathbf{v}_{t,2}^C;\, \dots;\, \mathbf{v}_{t,n_h}^C\right]
+&= \mathbf{v}_t^C
+= W^{UV} \mathbf{c}_t^{KV}
+\end{aligned}
+\]
+</div>
+
+<p>where $W^{UK} \in \mathbb{R}^{d_h n_h \times d_c}$ and $W^{UV} \in \mathbb{R}^{d_h n_h \times d_c}$ are up-projection matrices.</p>
+<p>Moreover, in order to reduce the activation memory during training, MLA also performs low-rank compression for the queries, even if it cannot reduce the KV cache:</p>
+<div>
+\[
+\begin{aligned}
+\mathbf{c}_t^Q
+&= W^{DQ} \mathbf{h}_t \\
+\left[\mathbf{q}_{t,1}^C;\, \mathbf{q}_{t,2}^C;\, \dots;\, \mathbf{q}_{t,n_h}^C\right]
+&= \mathbf{q}_t^C
+= W^{UQ} \mathbf{c}_t^Q
+\end{aligned}
+\]
+</div>
+
+<p>To demonstrate the difference between MHA, MQA, GQA and MLA, you can refer to the figure below:</p>
+<p align="center">
+  <img src="/images/dsattn-1.png" alt="Difference between MHA, MQA, GQA and MLA">
+</p>
+
+<h2 id="Matrix-Absorption"><a href="#Matrix-Absorption" class="headerlink" title="Matrix Absorption"></a>Matrix Absorption</h2><p>In addition, during inference, we can apply <strong>Matrix Absorption</strong> to reduce computation overhead.</p>
+<p>Instead of performing the up-projections to generate the full $\mathbf{q}_{t,i}^C$ and $\mathbf{k}_{j,i}^C$ vectors, we can mathematically merge the two projection steps. Let $W^{UQ}_i$ and $W^{UK}_i$ be the up-projection sub-matrices for the $i$-th head. The attention score can be derived as the interaction between the Latent Query and Latent Key:</p>
+<div>$$\begin{aligned}
+\text{Score}_{t,j,i}
+&amp;= (\mathbf{q}_{t,i}^C)^\top \mathbf{k}_{j,i}^C \\
+&amp;= (W^{UQ}_i \mathbf{c}_t^Q)^\top (W^{UK}_i \mathbf{c}_j^{KV}) \\
+&amp;= (\mathbf{c}_t^Q)^\top (W^{UQ}_i)^\top W^{UK}_i \mathbf{c}_j^{KV} \\
+&amp;= (\mathbf{c}_t^Q)^\top \underbrace{\left( (W^{UQ}_i)^\top W^{UK}_i \right)}_{W^{QK,i}_{Absorbed}} \mathbf{c}_j^{KV}
+\end{aligned}$$
+</div>
+
+<p>Here, $W_{QK,i}^{Absorbed} \in \mathbb{R}^{d_c \times d_c}$ is the pre-computed absorbed matrix for the $i$-th head.</p>
+<p>Similarly, the Value Projection can also be optimized.<br>Here, we explicitly define the attention weight $\alpha_{t,j,i}$ as the Softmax of the scaled scores for the $i$-th head:</p>
+<div>
+$$\alpha_{t,j,i} = \text{Softmax}_j \left( \frac{\text{Score}_{t,j,i}}{\sqrt{d_h + d_h^R}} \right)$$
+</div>
+
+<blockquote>
+<p>In DeepSeek-V2, the scaling factor is $\sqrt{d_h + d_h^R}$ to account for both content and RoPE dimensions (see section 3.3).</p>
+</blockquote>
+<p>In MLA, since $\mathbf{v}_{j, i}^C$ is generated from the latent vector $\mathbf{c}_j^{KV}$, we can rewrite the output calculation:</p>
+<div>
+$$\begin{aligned}
+\mathbf{o}_{t, i} &amp;= \sum_{j=1}^t \alpha_{t,j,i} \mathbf{v}_{j,i}^C \\
+&amp;= \sum_{j=1}^t \alpha_{t,j,i} (W^{UV}_i \mathbf{c}_j^{KV}) \\
+&amp;= W^{UV}_i \underbrace{\left( \sum_{j=1}^t \alpha_{t,j,i} \mathbf{c}_j^{KV} \right)}_{\text{Latent Weighted Sum}}
+\end{aligned}$$
+</div>
+
+<p>Finally, this head’s output is projected by the output matrix $W^O$. By associativity of matrix multiplication, we can merge $W^{UV}_i$ into $W^O_i$:</p>
+<div>
+$$\begin{aligned}
+\mathbf{u}_{t,i} &amp;= W^O_i \mathbf{o}_{t,i} \\
+&amp;= W^O_i \left( W^{UV}_i \sum_{j=1}^t \alpha_{t,j,i} \mathbf{c}_j^{KV} \right) \\
+&amp;= \underbrace{(W^O_i W^{UV}_i)}_{W_{Absorbed}^{O,i}} \left( \sum_{j=1}^t \alpha_{t,j,i} \mathbf{c}_j^{KV} \right)
+\end{aligned}$$
+</div>
+
+<blockquote>
+<p>Here, $\mathbf{u}_{t,i}$ denotes the output-projected representation of the i-th attention head.<br>The final output $\mathbf{u}_t$ is obtained by concatenating all $\mathbf{u}_{t,i}$.</p>
+</blockquote>
+<p>Note that matrix absorption is applied only during inference. During training, we need to explicitly reconstruct the values for backpropagation.</p>
+<h2 id="Decoupled-Rotary-Position-Embedding"><a href="#Decoupled-Rotary-Position-Embedding" class="headerlink" title="Decoupled Rotary Position Embedding"></a>Decoupled Rotary Position Embedding</h2><p>While the low-rank compression strategy successfully reduces the KV cache size, it introduces a critical conflict with <strong>Rotary Position Embedding (RoPE)</strong>.</p>
+<h3 id="The-Conflict-RoPE-vs-Matrix-Absorption"><a href="#The-Conflict-RoPE-vs-Matrix-Absorption" class="headerlink" title="The Conflict: RoPE vs. Matrix Absorption"></a>The Conflict: RoPE vs. Matrix Absorption</h3><p>As mentioned in the DeepSeek-V2 paper, standard RoPE is position-sensitive and applies a rotation matrix to the Query and Key vectors. If we apply RoPE directly to the up-projected Keys $\mathbf{k}_j^C$, the rotation matrix $\mathcal{R}_j$ (which relates to the current token position) would be inserted between the query vector and the up-projection matrix $W^{UK}$:</p>
+<div>
+\[
+\text{Score}_{t,j}
+=
+\mathbf{q}_t^\top\left(\mathcal{R}_j\, W^{UK}\mathbf{c}_j^{KV}\right)
+\]
+</div>
+
+<p>Because <strong>matrix multiplication is not commutative</strong>, we cannot simply move the position-dependent rotation matrix $\mathcal{R}_j$ past the fixed parameters matrix $W^{UK}$ to merge it with $\mathbf{q}$. This implies that $W^{UK}$ cannot be absorbed into $W^Q$(more precise, $W^{UQ}$) during inference. If we were to persist with this approach, we would be forced to recompute the high-dimensional keys for all prefix tokens at every decoding step to apply the correct positional rotation, which would significantly hinder inference efficiency.</p>
+<h3 id="The-Solution-Decoupled-RoPE-Strategy"><a href="#The-Solution-Decoupled-RoPE-Strategy" class="headerlink" title="The Solution: Decoupled RoPE Strategy"></a>The Solution: Decoupled RoPE Strategy</h3><p>To resolve this, DeepSeek-V2 employs a Decoupled RoPE strategy. The core idea is to separate the query and key vectors into two parts: a Content Part for semantic features and a RoPE Part for positional information. The generation of these vectors is defined as follows:</p>
+<ol>
+<li><p>Decoupled Queries (Multi-Head): For the queries, we generate a separate RoPE vector $\mathbf{q}_{t,i}^R$ for each attention head $i$. This maintains the multi-head diversity for positional attention.</p>
+<div>
+\[
+\left[
+\mathbf{q}_{t,1}^R;\,
+\mathbf{q}_{t,2}^R;\,
+\dots;\,
+\mathbf{q}_{t,n_h}^R
+\right]
+=
+\mathbf{q}_t^R
+=
+\mathrm{RoPE}\!\left(W^{QR}\mathbf{c}_t^Q\right)
+\]
+</div>
+</li>
+<li><p>Decoupled Keys (Shared-Head): For the keys, we generate a single RoPE vector $\mathbf{k}_t^R$ that is shared across all attention heads.</p>
+</li>
+</ol>
+<div>
+$$\mathbf{k}_t^R = \text{RoPE}(W^{KR} \mathbf{h}_t)$$
+</div>
+
+<blockquote>
+<p>MLA minimizes the additional memory required to store positional information by sharing the RoPE key $\mathbf{k}_t^R$ across all heads (instead of having $n_h$ distinct RoPE keys).</p>
+</blockquote>
+<h3 id="Caching-during-inference"><a href="#Caching-during-inference" class="headerlink" title="Caching during inference"></a>Caching during inference</h3><p>In MLA, we do not cache the full per-head keys/values. Instead, for each past position $j$ we cache:</p>
+<ul>
+<li>the latent KV vector $\mathbf{c}_j^{KV} \in \mathbb{R}^{d_c}$, and</li>
+<li>the shared RoPE key $\mathbf{k}_j^R \in \mathbb{R}^{d_h^R}$.</li>
+</ul>
+<h3 id="Final-Attention-Calculation"><a href="#Final-Attention-Calculation" class="headerlink" title="Final Attention Calculation"></a>Final Attention Calculation</h3><p>During the attention phase, the queries and keys are concatenations of their respective content and RoPE parts.<br>For the query at position $t$ and head $i$:</p>
+<div>
+$$\mathbf{q}_{t,i} = [\mathbf{q}_{t,i}^C \,;\, \mathbf{q}_{t,i}^R]$$
+</div>
+
+<p>For the key at position $j$ (where $j \le t$):</p>
+<div>
+$$\mathbf{k}_{j,i} = [\mathbf{k}_{j,i}^C \,;\, \mathbf{k}_{j}^R]$$
+</div>
+
+<p>The scaled attention score between query $t$ and key $j$ for head $i$ is computed as:</p>
+<div>$$\begin{aligned}
+\text{Score}_{t,j,i} &amp;= \frac{\mathbf{q}_{t,i}^\top \mathbf{k}_{j,i}}{\sqrt{d_h + d_h^R}} \\
+&amp;= \frac{(\mathbf{q}_{t,i}^C)^\top \mathbf{k}_{j,i}^C + (\mathbf{q}_{t,i}^R)^\top \mathbf{k}_{j}^R}{\sqrt{d_h + d_h^R}}
+\end{aligned}$$
+</div>
+
+
+
+<p>By expanding the dot product, we can see why MLA is efficient:</p>
+<ol>
+<li>Content Term $(\mathbf{q}_{t,i}^C)^\top \mathbf{k}_{j,i}^C$: Can be computed using Matrix Absorption (using latent vectors), avoiding explicit key reconstruction.</li>
+<li>RoPE Term $(\mathbf{q}_{t,i}^R)^\top \mathbf{k}_{j}^R$: Computed explicitly using the small, cached RoPE keys.</li>
+</ol>
+<p>The normalized attention weights are obtained via softmax over all past positions $j$:</p>
+<div>
+$$\alpha_{t,j,i} = \text{Softmax}_j(\text{Score}_{t,j,i})$$
+</div>
+
+<p>Finally, the attention output for head $i$ is computed using the values (which are also reconstructed from latent vectors):</p>
+<div>
+$$\mathbf{o}_{t,i} = \sum_{j=1}^{t} \alpha_{t,j,i} \mathbf{v}_{j,i}^C$$
+</div>
+
+<p>The outputs from all heads are concatenated and projected to form the final output:</p>
+<div>
+$$\mathbf{u}_t = W^O [\mathbf{o}_{t,1}; \mathbf{o}_{t,2}; \dots; \mathbf{o}_{t,n_h}]$$
+</div>
+
+<p>The illustration below shows the MLA flow:</p>
+<p align="center">
+  <img src="/images/mla.png" alt="MLA Flow" width="500">
+</p>
+
+
+<h2 id="Comparison-of-Key-Value-Cache"><a href="#Comparison-of-Key-Value-Cache" class="headerlink" title="Comparison of Key-Value Cache"></a>Comparison of Key-Value Cache</h2><p>The table below compares the KV cache size per token across different attention mechanisms:</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th style="text-align:left">Attention Mechanism</th>
+<th style="text-align:left">KV Cache per Token (# Elements)</th>
+<th style="text-align:left">Capability</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td style="text-align:left"><strong>MHA</strong></td>
+<td style="text-align:left">$2 \times n_h \times d_h \times l$</td>
+<td style="text-align:left">Strong</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>GQA</strong></td>
+<td style="text-align:left">$2 \times n_g \times d_h \times l$</td>
+<td style="text-align:left">Moderate</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>MQA</strong></td>
+<td style="text-align:left">$2 \times 1 \times d_h \times l$</td>
+<td style="text-align:left">Weak</td>
+</tr>
+<tr>
+<td style="text-align:left"><strong>MLA</strong></td>
+<td style="text-align:left">$(d_c + d_h^R) \times l \approx \frac{9}{2} \times d_h \times l$</td>
+<td style="text-align:left"><strong>Stronger</strong></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>Here, $n_h$ denotes the number of attention heads, $d_h$ denotes the dimension per attention head, $l$ denotes the number of layers, $n_g$ denotes the number of groups in GQA, and $d_c$ and $d_h^R$ denote the KV compression dimension and the per-head dimension of the decoupled queries and key in MLA, respectively. The amount of KV cache is measured by the number of elements, regardless of the storage precision. For DeepSeek-V2, $d_c$ is set to $4d_h$ and $d_h^R$ is set to $\frac{d_h}{2}$. So, its KV cache is equal to GQA with only 2.25 groups, but its performance is stronger than MHA.</p>
+<h1 id="Reference"><a href="#Reference" class="headerlink" title="Reference"></a>Reference</h1><ul>
+<li><a target="_blank" rel="noopener" href="https://arxiv.org/pdf/2405.04434">DeepSeek-V2: A Strong, Economical, and Efficient Mixture-of-Experts Language Model</a></li>
+<li><a target="_blank" rel="noopener" href="https://blog.csdn.net/jinzhuojun/article/details/145392128">DeepSeek V2/V3中的MLA和Matrix Absorption</a></li>
+</ul>
+</div><div class="article-licensing box"><div class="licensing-title"><p>Multi-head Latent Attention</p><p><a href="https://bonginn.github.io/2025/12/30/mla/">https://bonginn.github.io/2025/12/30/mla/</a></p></div><div class="licensing-meta level is-mobile"><div class="level-left"><div class="level-item is-narrow"><div><h6>Author</h6><p>Pang-Chun</p></div></div><div class="level-item is-narrow"><div><h6>Posted on</h6><p>2025-12-30</p></div></div><div class="level-item is-narrow"><div><h6>Updated on</h6><p>2026-01-12</p></div></div><div class="level-item is-narrow"><div><h6>Licensed under</h6><p><a class="icons" rel="noopener" target="_blank" title="Creative Commons" href="https://creativecommons.org/"><i class="icon fab fa-creative-commons"></i></a><a class="icons" rel="noopener" target="_blank" title="Attribution" href="https://creativecommons.org/licenses/by/4.0/"><i class="icon fab fa-creative-commons-by"></i></a><a class="icons" rel="noopener" target="_blank" title="Noncommercial" href="https://creativecommons.org/licenses/by-nc/4.0/"><i class="icon fab fa-creative-commons-nc"></i></a></p></div></div></div></div></div><hr style="height:1px;margin:1rem 0"><!--!--></article></div><!--!--><nav class="post-navigation mt-4 level is-mobile"><div class="level-end"><a class="article-nav-next level level-item link-muted" href="/2025/11/20/%E4%B8%99%E7%B5%84%E5%BF%83%E5%BE%97/"><span class="level-item">115 交大資工所丙組推甄心得</span><i class="level-item fas fa-chevron-right"></i></a></div></nav><div class="card" id="comments"><div class="card-content"><h3 class="title is-5">Comments</h3><div id="disqus_thread"><noscript>Please enable JavaScript to view the <a target="_blank" rel="noopener" href="//disqus.com/?ref_noscript">comments powered by Disqus.</a></noscript></div><script>var disqus_config = function () {
+            this.page.url = 'https://bonginn.github.io/2025/12/30/mla/';
+            this.page.identifier = '2025/12/30/mla/';
+        };
+        (function() {
+            var d = document, s = d.createElement('script');  
+            s.src = '//' + 'bonginn' + '.disqus.com/embed.js';
+            s.setAttribute('data-timestamp', +new Date());
+            (d.head || d.body).appendChild(s);
+        })();</script></div></div></div><div class="column column-left is-4-tablet is-3-desktop is-3-widescreen  order-1 is-sticky"><div class="card widget" data-type="profile"><div class="card-content"><nav class="level"><div class="level-item has-text-centered flex-shrink-1"><div><figure class="image is-128x128 mx-auto mb-2"><img class="avatar is-rounded" src="/./img/IMG_5014.JPG" alt="Chung"></figure><p class="title is-size-4 is-block" style="line-height:inherit;">Chung</p><p class="is-size-6 is-block">Computer Science</p><p class="is-size-6 is-flex justify-content-center"><i class="fas fa-map-marker-alt mr-1"></i><span>Hsinchu, Taiwan</span></p></div></div></nav><nav class="level is-mobile"><div class="level-item has-text-centered is-marginless"><div><p class="heading">Posts</p><a href="/archives/"><p class="title">8</p></a></div></div><div class="level-item has-text-centered is-marginless"><div><p class="heading">Categories</p><a href="/categories/"><p class="title">3</p></a></div></div><div class="level-item has-text-centered is-marginless"><div><p class="heading">Tags</p><a href="/tags/"><p class="title">5</p></a></div></div></nav><div class="level is-mobile is-multiline"><a class="level-item button is-transparent is-marginless" target="_blank" rel="me noopener" title="Github" href="https://github.com/bonginn"><i class="fab fa-github"></i></a><a class="level-item button is-transparent is-marginless" target="_blank" rel="me noopener" title="Facebook" href="https://www.facebook.com/profile.php?id=100007331499275"><i class="fab fa-facebook"></i></a><a class="level-item button is-transparent is-marginless" target="_blank" rel="me noopener" title="LinkedIn" href="https://www.linkedin.com/in/pangchunchung/"><i class="fab fa-linkedin"></i></a><a class="level-item button is-transparent is-marginless" target="_blank" rel="me noopener" title="Email" href="mailto:caco.sc11@nycu.edu.tw"><i class="fas fa-envelope"></i></a><a class="level-item button is-transparent is-marginless" target="_blank" rel="me noopener" title="CV" href="https://bonginn.github.io/cv.pdf"><i class="fas fa-file-alt"></i></a></div></div></div><div class="card widget" id="toc" data-type="toc"><div class="card-content"><div class="menu"><h3 class="menu-label">Catalogue</h3><ul class="menu-list"><li><a class="level is-mobile" href="#Introduction"><span class="level-left"><span class="level-item">1</span><span class="level-item">Introduction</span></span></a></li><li><a class="level is-mobile" href="#Existing-KV-Cache-Reduction-Techniques"><span class="level-left"><span class="level-item">2</span><span class="level-item">Existing KV Cache Reduction Techniques</span></span></a><ul class="menu-list"><li><a class="level is-mobile" href="#Multi-Head-Attention-MHA"><span class="level-left"><span class="level-item">2.1</span><span class="level-item">Multi-Head Attention (MHA)</span></span></a></li><li><a class="level is-mobile" href="#Multi-Query-Attention-MQA"><span class="level-left"><span class="level-item">2.2</span><span class="level-item">Multi-Query Attention (MQA)</span></span></a></li><li><a class="level is-mobile" href="#Grouped-Query-Attention-GQA"><span class="level-left"><span class="level-item">2.3</span><span class="level-item">Grouped Query Attention (GQA)</span></span></a></li></ul></li><li><a class="level is-mobile" href="#Multi-Head-Latent-Attention-MLA"><span class="level-left"><span class="level-item">3</span><span class="level-item">Multi-Head Latent Attention (MLA)</span></span></a><ul class="menu-list"><li><a class="level is-mobile" href="#Low-Rank-Key-Value-Joint-Compression"><span class="level-left"><span class="level-item">3.1</span><span class="level-item">Low-Rank Key-Value Joint Compression</span></span></a></li><li><a class="level is-mobile" href="#Matrix-Absorption"><span class="level-left"><span class="level-item">3.2</span><span class="level-item">Matrix Absorption</span></span></a></li><li><a class="level is-mobile" href="#Decoupled-Rotary-Position-Embedding"><span class="level-left"><span class="level-item">3.3</span><span class="level-item">Decoupled Rotary Position Embedding</span></span></a><ul class="menu-list"><li><a class="level is-mobile" href="#The-Conflict-RoPE-vs-Matrix-Absorption"><span class="level-left"><span class="level-item">3.3.1</span><span class="level-item">The Conflict: RoPE vs. Matrix Absorption</span></span></a></li><li><a class="level is-mobile" href="#The-Solution-Decoupled-RoPE-Strategy"><span class="level-left"><span class="level-item">3.3.2</span><span class="level-item">The Solution: Decoupled RoPE Strategy</span></span></a></li><li><a class="level is-mobile" href="#Caching-during-inference"><span class="level-left"><span class="level-item">3.3.3</span><span class="level-item">Caching during inference</span></span></a></li><li><a class="level is-mobile" href="#Final-Attention-Calculation"><span class="level-left"><span class="level-item">3.3.4</span><span class="level-item">Final Attention Calculation</span></span></a></li></ul></li><li><a class="level is-mobile" href="#Comparison-of-Key-Value-Cache"><span class="level-left"><span class="level-item">3.4</span><span class="level-item">Comparison of Key-Value Cache</span></span></a></li></ul></li><li><a class="level is-mobile" href="#Reference"><span class="level-left"><span class="level-item">4</span><span class="level-item">Reference</span></span></a></li></ul></div></div><style>#toc .menu-list > li > a.is-active + .menu-list { display: block; }#toc .menu-list > li > a + .menu-list { display: none; }</style><script src="/js/toc.js" defer></script></div><div class="card widget" data-type="categories"><div class="card-content"><div class="menu"><h3 class="menu-label">Categories</h3><ul class="menu-list"><li><a class="level is-mobile" href="/categories/Misc/"><span class="level-start"><span class="level-item">Misc</span></span><span class="level-end"><span class="level-item tag">1</span></span></a></li><li><a class="level is-mobile" href="/categories/Note/"><span class="level-start"><span class="level-item">Note</span></span><span class="level-end"><span class="level-item tag">5</span></span></a></li><li><a class="level is-mobile" href="/categories/Solution/"><span class="level-start"><span class="level-item">Solution</span></span><span class="level-end"><span class="level-item tag">1</span></span></a></li></ul></div></div></div><div class="card widget" data-type="subscribe-email"><div class="card-content"><div class="menu"><h3 class="menu-label">Subscribe for updates</h3><form action="https://feedburner.google.com/fb/a/mailverify" method="post" target="popupwindow" onsubmit="window.open(&#039;https://feedburner.google.com/fb/a/mailverify?uri=&#039;,&#039;popupwindow&#039;,&#039;scrollbars=yes,width=550,height=520&#039;);return true"><input type="hidden" value="" name="uri"><input type="hidden" name="loc" value="en_US"><div class="field has-addons"><div class="control has-icons-left is-expanded"><input class="input" name="email" type="email" placeholder="Email"><span class="icon is-small is-left"><i class="fas fa-envelope"></i></span></div><div class="control"><input class="button" type="submit" value="Subscribe"></div></div></form></div></div></div><div class="column-right-shadow is-hidden-widescreen"></div></div><!--!--></div></div></section><footer class="footer"><div class="container"><div class="level"><div class="level-start"><a class="footer-logo is-block mb-2" href="/"><img src="/img/logo.svg" alt="bonginn&#039;s blog" height="28"></a><p class="is-size-7"><span>&copy; 2026 Pang-Chun</span>  Powered by <a href="https://hexo.io/" target="_blank" rel="noopener">Hexo</a> &amp; <a href="https://github.com/ppoffice/hexo-theme-icarus" target="_blank" rel="noopener">Icarus</a></p><p class="is-size-7">© 2019</p></div><div class="level-end"><div class="field has-addons"><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Creative Commons" href="https://creativecommons.org/"><i class="fab fa-creative-commons"></i></a></p><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Attribution 4.0 International" href="https://creativecommons.org/licenses/by/4.0/"><i class="fab fa-creative-commons-by"></i></a></p><p class="control"><a class="button is-transparent is-large" target="_blank" rel="noopener" title="Download on GitHub" href="https://github.com/ppoffice/hexo-theme-icarus"><i class="fab fa-github"></i></a></p></div></div></div></div></footer><script src="https://cdn.jsdelivr.net/npm/jquery@3.3.1/dist/jquery.min.js"></script><script src="https://cdn.jsdelivr.net/npm/moment@2.22.2/min/moment-with-locales.min.js"></script><script src="https://cdn.jsdelivr.net/npm/clipboard@2.0.4/dist/clipboard.min.js" defer></script><script>moment.locale("en");</script><script>var IcarusThemeSettings = {
+            article: {
+                highlight: {
+                    clipboard: true,
+                    fold: 'unfolded'
+                }
+            }
+        };</script><script data-pjax src="/js/column.js"></script><script src="/js/animation.js"></script><a id="back-to-top" title="Back to top" href="javascript:;"><i class="fas fa-chevron-up"></i></a><script data-pjax src="/js/back_to_top.js" defer></script><!--!--><!--!--><!--!--><script src="https://cdn.jsdelivr.net/npm/cookieconsent@3.1.1/build/cookieconsent.min.js" defer></script><script>window.addEventListener("load", () => {
+      window.cookieconsent.initialise({
+        type: "info",
+        theme: "edgeless",
+        static: false,
+        position: "bottom-left",
+        content: {
+          message: "This website uses cookies to improve your experience.",
+          dismiss: "Got it!",
+          allow: "Allow cookies",
+          deny: "Decline",
+          link: "Learn more",
+          policy: "Cookie Policy",
+          href: "https://www.cookiesandyou.com/",
+        },
+        palette: {
+          popup: {
+            background: "#edeff5",
+            text: "#838391"
+          },
+          button: {
+            background: "#4b81e8"
+          },
+        },
+      });
+    });</script><script src="https://cdn.jsdelivr.net/npm/lightgallery@1.10.0/dist/js/lightgallery.min.js" defer></script><script src="https://cdn.jsdelivr.net/npm/justifiedGallery@3.8.1/dist/js/jquery.justifiedGallery.min.js" defer></script><script>window.addEventListener("load", () => {
+            if (typeof $.fn.lightGallery === 'function') {
+                $('.article').lightGallery({ selector: '.gallery-item' });
+            }
+            if (typeof $.fn.justifiedGallery === 'function') {
+                if ($('.justified-gallery > p > .gallery-item').length) {
+                    $('.justified-gallery > p > .gallery-item').unwrap();
+                }
+                $('.justified-gallery').justifiedGallery();
+            }
+        });</script><!--!--><!--!--><link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.15.1/dist/katex.min.css"><script src="https://cdn.jsdelivr.net/npm/katex@0.15.1/dist/katex.min.js" defer></script><script src="https://cdn.jsdelivr.net/npm/katex@0.15.1/dist/contrib/auto-render.min.js" defer></script><script src="https://cdn.jsdelivr.net/npm/katex@0.15.1/dist/contrib/mhchem.min.js" defer></script><script>window.addEventListener("load", function() {
+            document.querySelectorAll('[role="article"] > .content').forEach(function(element) {
+                renderMathInElement(element);
+            });
+        });</script><script type="text/javascript" id="MathJax-script" async>MathJax = {
+      tex: {
+        inlineMath: [['$', '$'], ['\\(', '\\)']]
+      },
+      svg: {
+        fontCache: 'global'
+      },
+      chtml: {
+        matchFontHeight: false
+      }
+    };</script><script src="https://cdn.jsdelivr.net/npm/mathjax@3.2.2/es5/tex-mml-chtml.js"></script><script src="https://cdn.jsdelivr.net/npm/pjax@0.2.8/pjax.min.js"></script><script src="/js/pjax.js"></script><!--!--><!--!--><!--!--><script data-pjax src="/js/main.js" defer></script><script src="/js/night.js" defer></script><div class="searchbox"><div class="searchbox-container"><div class="searchbox-header"><div class="searchbox-input-container"><input class="searchbox-input" type="text" placeholder="Type something..."></div><a class="searchbox-close" href="javascript:;">×</a></div><div class="searchbox-body"></div></div></div><script data-pjax src="/js/insight.js" defer></script><script data-pjax>document.addEventListener('DOMContentLoaded', function () {
+            loadInsight({"contentUrl":"/content.json"}, {"hint":"Type something...","untitled":"(Untitled)","posts":"Posts","pages":"Pages","categories":"Categories","tags":"Tags"});
+        });</script></body></html>
