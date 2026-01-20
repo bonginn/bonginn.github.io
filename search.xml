@@ -1,233 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <search>
   <entry>
-    <title>Backpropagation 反向傳播</title>
-    <url>/2025/02/17/backpropagation/</url>
-    <content><![CDATA[<p>學PyTorch不如自己刻一次Backpropagation。<br><span id="more"></span></p>
-<h1 id="Opening"><a href="#Opening" class="headerlink" title="Opening"></a><strong>Opening</strong></h1><p>本篇文章是建立在對Gradient Descent、Neural Network架構有基礎了解的前提下，介紹如何透過Backpropagation來更新神經網路的參數，並且使用NumPy手刻出Backpropagation的過程。</p>
-<h1 id="Forward-向前傳播"><a href="#Forward-向前傳播" class="headerlink" title="Forward 向前傳播"></a><strong>Forward 向前傳播</strong></h1><p>首先，先來看神經網路的基本架構：</p>
-<p><p align="center">
-  <img src="/images/nn.png" alt="Credit: 4o">
-</p><br>這是一個簡易的神經網路，輸入、隱藏層皆有兩個Neurons加上一個Bias，輸出則有一個Neurons。對於某Neuron $X_i$，向前傳播過程可以寫成：</p>
-<div>
-$$
-\begin{aligned}
-Z^{(1)}_j &= \sum_{i=1}^{D} W^{(1)}_{ij}X_i + B^{(1)}_j \\
-A^{(1)}_j &= h(Z^{(1)}_j) \\
-Z^{(2)}_k &= \sum_{j=1}^{M} W^{(2)}_{jk}A^{(1)}_j + B^{(2)}_k \\
-A^{(2)}_k &= Z^{(2)}_k \\
-
-\text{E}(W,B) &= \frac{1}{2 } \sum_{k=1}^{K} (A^{(2)}_k - Y_k)^2 
-\end{aligned}
-$$
-</div>
-這裡的$h$表示隱藏層的激活函數（Activation Function），這裡因為以Regression為例，所以輸出層的激活函數為Identity Function。$\text{E}$表示Loss Function，這裡以Mean Squared Error為例。
-
-若僅考慮Variables/Activations的Dependency，可以寫成：
-<div>
-$$
-\begin{aligned}
-X_i \rightarrow W^{(1)}_{ij} \rightarrow Z^{(1)}_j \rightarrow A^{(1)}_j \rightarrow W^{(2)}_{jk} \rightarrow Z^{(2)}_k \rightarrow A^{(2)}_k \leftrightarrow Y_k \rightarrow \text{E}
-\end{aligned}
-$$
-</div>
-
-<h1 id="Backward-反向傳播"><a href="#Backward-反向傳播" class="headerlink" title="Backward 反向傳播"></a><strong>Backward 反向傳播</strong></h1><p>接著，我們要來更新$W^{(2)}$的參數，我們的目標是計算$\frac{\partial E}{\partial W^{(2)}_{jk}}$，但這個東西很難直接算出來，因此我們考慮使用<strong>Chain Rule</strong>，透過上式的Dependency關係將其拆成 :</p>
-<div>
-$$
-\begin{aligned}
-\frac{\partial E}{\partial W^{(2)}_{jk}} &= \frac{\partial E}{\partial Z^{(2)}_k} \cdot \frac{\partial Z^{(2)}_k}{\partial W^{(2)}_{jk}} \\
-\end{aligned}
-$$  
-</div>
-
-<p>透過一些簡單的偏微分計算，我們得到：</p>
-<div>
-$$
-\begin{aligned}
-\frac{\partial E}{\partial Z^{(2)}_k} &= A^{(2)}_k - Y_k = \delta_{k} \\
-\frac{\partial Z^{(2)}_k}{\partial W^{(2)}_{jk}} &= A^{(1)}_j
-\end{aligned}
-$$
-</div>
-接著再次使用Chain Rule，分解$\frac{\partial E}{\partial W^{(1)}_{ij}}$：
-<div>
-$$
-\begin{aligned}
-\frac{\partial E}{\partial W^{(1)}_{ij}} &= 
-\sum_{k=1}^{K} \left(
-\frac{\partial E}{\partial Z^{(2)}_k} \cdot
-\frac{\partial Z^{(2)}_k}{\partial Z^{(1)}_j} \cdot
-\frac{\partial Z^{(1)}_j}{\partial W^{(1)}_{ij}} \right) \\
-\end{aligned}
-$$
-</div>
-再複習一次大一微積分：
-<div>
-$$
-\begin{aligned}
-\frac{\partial E}{\partial Z^{(2)}_k} &= \delta_{k} \\
-\frac{\partial Z^{(2)}_k}{\partial Z^{(1)}_j} &= W^{(2)}_{jk} \cdot h^{'}(Z^{(1)}_j) \\
-\frac{\partial Z^{(1)}_j}{\partial W^{(1)}_{ij}} &= X_i
-\end{aligned}
-$$
-</div>
-
-<p>其中，我們定義第一層的誤差信號 $\delta_j$ 為：</p>
-<div>
-$$
-\begin{aligned}
-\delta_j &= \frac{\partial E}{\partial Z^{(1)}_j} = \sum_{k=1}^{K} W^{(2)}_{jk} \delta_k h'(Z^{(1)}_j)
-\end{aligned}
-$$
-</div>
-
-<p>將上述幾式整理，我們可以得到：</p>
-<div>
-$$
-\begin{aligned}
-\frac{\partial E}{\partial W^{(2)}_{jk}} &= \delta_{k} \cdot A^{(1)}_j \\
-\frac{\partial E}{\partial W^{(1)}_{ij}} &= \delta_{j} \cdot X_i
-\end{aligned}
-$$
-</div>
-
-<p>對於Bias的Gradient，其實就是：</p>
-<div>
-$$
-\begin{aligned}
-\frac{\partial E}{\partial B^{(2)}_{k}} &= \delta_{k} \\
-\frac{\partial E}{\partial B^{(1)}_{j}} &= \delta_{j}
-\end{aligned}
-$$
-</div>
-
-<p>如此一來我們就算完最複雜的部分了，可以進入實作了！</p>
-<h1 id="Implementation"><a href="#Implementation" class="headerlink" title="Implementation"></a><strong>Implementation</strong></h1><p>在開始實作前，我們先釐清各個矩陣的維度：</p>
-<div class="table-container">
-<table>
-<thead>
-<tr>
-<th>符號</th>
-<th>說明</th>
-<th>維度</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>$X$</td>
-<td>輸入矩陣</td>
-<td>(m, n_input)</td>
-</tr>
-<tr>
-<td>$W^{(1)}$</td>
-<td>第一層的權重矩陣</td>
-<td>(n_input, n_hidden)</td>
-</tr>
-<tr>
-<td>$B^{(1)}$</td>
-<td>第一層的偏差矩陣</td>
-<td>(1, n_hidden)</td>
-</tr>
-<tr>
-<td>$Z^{(1)}$</td>
-<td>第一層的線性組合</td>
-<td>(m, n_hidden)</td>
-</tr>
-<tr>
-<td>$A^{(1)}$</td>
-<td>第一層的激活函數結果</td>
-<td>(m, n_hidden)</td>
-</tr>
-<tr>
-<td>$W^{(2)}$</td>
-<td>第二層的權重矩陣</td>
-<td>(n_hidden, n_output)</td>
-</tr>
-<tr>
-<td>$B^{(2)}$</td>
-<td>第二層的偏差矩陣</td>
-<td>(1, n_output)</td>
-</tr>
-<tr>
-<td>$Z^{(2)}$</td>
-<td>第二層的線性組合</td>
-<td>(m, n_output)</td>
-</tr>
-<tr>
-<td>$A^{(2)}$</td>
-<td>第二層的激活函數結果</td>
-<td>(m, n_output)</td>
-</tr>
-</tbody>
-</table>
-</div>
-<p>其中，m為Batch Size，n_input為輸入的特徵數，n_hidden為隱藏層的Neuron數，n_output為輸出的Neuron數。</p>
-<h2 id="Forward"><a href="#Forward" class="headerlink" title="Forward"></a><strong>Forward</strong></h2><figure class="highlight python"><table><tr><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">forward</span>(<span class="params">self, x</span>):</span><br><span class="line">    <span class="string">&quot;&quot;&quot;</span></span><br><span class="line"><span class="string">    Parameters:</span></span><br><span class="line"><span class="string">        x (numpy.ndarray): Input matrix of shape (batch_size, n_input).</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">    Returns:</span></span><br><span class="line"><span class="string">        numpy.ndarray: Output matrix of shape (batch_size, n_output).</span></span><br><span class="line"><span class="string">    &quot;&quot;&quot;</span></span><br><span class="line">    <span class="variable language_">self</span>.z1 = np.matmul(x, <span class="variable language_">self</span>.w1) + <span class="variable language_">self</span>.b1</span><br><span class="line">    <span class="variable language_">self</span>.a1 = <span class="variable language_">self</span>.ReLU(<span class="variable language_">self</span>.z1)</span><br><span class="line">    <span class="variable language_">self</span>.z2 = np.matmul(<span class="variable language_">self</span>.a1, <span class="variable language_">self</span>.w2) + <span class="variable language_">self</span>.b2</span><br><span class="line">    <span class="variable language_">self</span>.a2 = <span class="variable language_">self</span>.z2</span><br><span class="line">    <span class="keyword">return</span> <span class="variable language_">self</span>.a2</span><br></pre></td></tr></table></figure>
-<p>在這裡選用ReLU作為隱藏層的Activation Function。</p>
-<h2 id="Backward"><a href="#Backward" class="headerlink" title="Backward"></a><strong>Backward</strong></h2><figure class="highlight python"><table><tr><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">backward</span>(<span class="params">self, X, y, pred, lr</span>):</span><br><span class="line">    <span class="string">&quot;&quot;&quot;</span></span><br><span class="line"><span class="string">    Parameters:</span></span><br><span class="line"><span class="string">        X (numpy.ndarray): Input matrix of shape (batch_size, n_input).</span></span><br><span class="line"><span class="string">        y (numpy.ndarray): Target matrix of shape (batch_size, n_output).</span></span><br><span class="line"><span class="string">        pred (numpy.ndarray): Output matrix of shape (batch_size, n_output).</span></span><br><span class="line"><span class="string">        lr (float): Learning rate.</span></span><br><span class="line"><span class="string">    &quot;&quot;&quot;</span></span><br><span class="line">    <span class="comment"># STEP 1</span></span><br><span class="line">    batch_size = X.shape[<span class="number">0</span>]</span><br><span class="line">    delta_output = <span class="number">2</span> * (pred - y) / batch_size</span><br><span class="line"></span><br><span class="line">    <span class="comment"># STEP 2</span></span><br><span class="line">    dw2 = np.matmul(<span class="variable language_">self</span>.a1.T, delta_output)</span><br><span class="line">    db2 = np.<span class="built_in">sum</span>(delta_output, axis=<span class="number">0</span>, keepdims=<span class="literal">True</span>)</span><br><span class="line"></span><br><span class="line">    <span class="comment"># STEP 3</span></span><br><span class="line">    delta_hidden = np.matmul(delta_output, <span class="variable language_">self</span>.w2.T) * <span class="variable language_">self</span>.ReLU_derivative(<span class="variable language_">self</span>.z1)</span><br><span class="line"></span><br><span class="line">    <span class="comment"># STEP 4</span></span><br><span class="line">    dw1 = np.matmul(X.T, delta_hidden)</span><br><span class="line">    db1 = np.<span class="built_in">sum</span>(delta_hidden, axis=<span class="number">0</span>, keepdims=<span class="literal">True</span>)</span><br><span class="line"></span><br><span class="line">    <span class="comment"># UPDATE</span></span><br><span class="line">    <span class="variable language_">self</span>.w1 -= lr * dw1</span><br><span class="line">    <span class="variable language_">self</span>.b1 -= lr * db1</span><br><span class="line">    <span class="variable language_">self</span>.w2 -= lr * dw2</span><br><span class="line">    <span class="variable language_">self</span>.b2 -= lr * db2</span><br></pre></td></tr></table></figure>
-<p>這裡的ReLU_derivative是ReLU的導函數（也可以換成其他Activation Function，但記得要differentiable）。<br>$ \delta_k  \text{加了} \frac{2}{\text{batch_size}}$ 常數是因為真正MSE函式應為 <code>np.mean((A - Y) ** 2)</code>，這個mean是指將$\textbf{所有資料}$的Square Error取平均，而上面的MSE公式則是為了讓$\textbf{單一資料}$Gradient計算時會比較漂亮，所以乘了一個$\frac{1}{2}$。<br>當初在寫Backward時一直不懂矩陣到底要怎麼乘，但後來發現只要想清楚上面的公式，再對照好矩陣維度就可以了！</p>
-<h2 id="Training"><a href="#Training" class="headerlink" title="Training"></a><strong>Training</strong></h2><p>再來來寫一個簡單的Training Function：<br><figure class="highlight python"><table><tr><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">train</span>(<span class="params">self, X, y, epochs=<span class="number">1000</span>, lr=<span class="number">0.01</span>, verbose=<span class="number">10</span></span>):</span><br><span class="line">   <span class="string">&quot;&quot;&quot;</span></span><br><span class="line"><span class="string">   Parameters:</span></span><br><span class="line"><span class="string">       X (numpy.ndarray): Input matrix of shape (batch_size, n_input).</span></span><br><span class="line"><span class="string">       y (numpy.ndarray): Target matrix of shape (batch_size, n_output).</span></span><br><span class="line"><span class="string">       epochs (int): Number of epochs.</span></span><br><span class="line"><span class="string">       lr (float): Learning rate.</span></span><br><span class="line"><span class="string">       verbose (int): Frequency of printing the loss</span></span><br><span class="line"><span class="string">   &quot;&quot;&quot;</span></span><br><span class="line">   <span class="keyword">for</span> epoch <span class="keyword">in</span> <span class="built_in">range</span>(epochs):</span><br><span class="line">       pred = <span class="variable language_">self</span>.forward(X)</span><br><span class="line">       loss = <span class="variable language_">self</span>.MSE(y, pred)</span><br><span class="line">       <span class="variable language_">self</span>.backward(X, y, pred, lr)</span><br><span class="line">       <span class="keyword">if</span> epoch % verbose == <span class="number">0</span>:</span><br><span class="line">           <span class="built_in">print</span>(<span class="string">f&quot;Epoch <span class="subst">&#123;epoch&#125;</span>, Loss: <span class="subst">&#123;loss:<span class="number">.6</span>f&#125;</span>&quot;</span>)</span><br></pre></td></tr></table></figure></p>
-<h1 id="Conclusion"><a href="#Conclusion" class="headerlink" title="Conclusion"></a><strong>Conclusion</strong></h1><p>這裡我以Regression為例，但實際上只要將Loss Function、Activation Function換掉，就可以應用在其他任務上。以下是一些常見的任務：</p>
-<div class="table-container">
-<table>
-<thead>
-<tr>
-<th><strong>Tasks</strong></th>
-<th><strong>輸出層 Activation Function</strong></th>
-<th><strong>Loss Function</strong></th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td><strong>回歸（Regression）</strong></td>
-<td><code>Identity Function</code></td>
-<td><strong>Mean Squared Error</strong></td>
-</tr>
-<tr>
-<td><strong>二元分類（Binary Classification）</strong></td>
-<td><code>Sigmoid</code></td>
-<td><strong>Binary Cross-Entropy</strong></td>
-</tr>
-<tr>
-<td><strong>多類分類（Multi-Class Classification）</strong></td>
-<td><code>Softmax</code></td>
-<td><strong>Categorical Cross-Entropy</strong></td>
-</tr>
-</tbody>
-</table>
-</div>
-<p>再做一些微分時小小的修改就可以了。但我認為重點在於理解Backpropagation中使用Chain Rule的技巧，還有計算Partial Derivative的一些細節。</p>
-]]></content>
-      <categories>
-        <category>Note</category>
-      </categories>
-      <tags>
-        <tag>code</tag>
-        <tag>Machine Learning</tag>
-      </tags>
-  </entry>
-  <entry>
-    <title>WQS 二分搜</title>
-    <url>/2025/01/08/WQS%E4%BA%8C%E5%88%86%E6%90%9C/</url>
-    <content><![CDATA[<p>一篇WQS二分搜的筆記，希望能讓自己不要這麼快忘記的個優化技巧。<br><span id="more"></span></p>
-<h2 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h2><p>WQS 二分搜又稱Aliens優化，是一個可以將二維的DP問題轉化成一個維度的優化技巧<br>複雜度可以從$O(N^2)$下降到$O(NlogC)$，但題目本身需要一些特性。<br>已知某函數$f(x)$為concave function，且我們有某種演算法可以在線性時間內求出$f(x) - px$的最大值及最大值<br>發生的位置($x_0$)。<br>接下來，我們畫出$p=0 - 5$的Cases :<br><img src="/images/Chart.png" alt="Credit : 4o"><br>可以發現，$x_0$隨著$p$上升逐漸下降！<br>因此若我們希望找到$f(x)$的最大值且$x&lt;=k$，我們可以對$p$做二分搜，找到最近的$p$使得$f(x) - px$的$x_0$$\le k$，最後答案就會是演算法的輸出$+ pk$。</p>
-<h2 id="Informal-Proof"><a href="#Informal-Proof" class="headerlink" title="Informal Proof"></a>Informal Proof</h2><p>至於為什麼當p越大，極值發生位置會越來越前面，簡單的證明如下：<br>當$f(x)$極值發生時的必要條件是$\nabla f(x) = 0$<br>$\nabla (f(x) - px) = \nabla f(x) - \nabla px = \nabla f(x) - p = 0$<br>已知$f(x)$是concave，因此 $\nabla f(x)$ 遞減<br>因此當$p \uparrow$，$x$必須越來越小。<br>然而，WQS真正困難的部分其實是證明$f(x)$是concave的，很多時候看到題目都會靠直覺猜它是concave，然後直接使用此性質（就像猜某個greedy方式會是最佳解）。</p>
-<h2 id="Intuition"><a href="#Intuition" class="headerlink" title="Intuition"></a>Intuition</h2><p>我覺得WQS二分搜有一個很好的intuition：<br>$f(x)$是某件事做了$x$次後得到的值，$p$就可以當作每做一次所需的成本，當成本($p$)越大，我們就不能做太多次操作（若我們的目標是maximize $f(x)$）。<br>因此！理所當然當$p$越大，$x_0$就會越小。</p>
-<h2 id="Application"><a href="#Application" class="headerlink" title="Application"></a>Application</h2><p>直接來看一題很經典的WQS二分的題目<a href="https://tioj.ck.tp.edu.tw/problems/2039">AI-666 賺多少</a>：<br>題目敘述：給定$n$天股票價格，求只能交易$k$次的情況下最多能賺多少錢？（假設最多同時只能持有一張股票）<br>這題有一個很簡單的dp解：<br>$dp0[i][j]$表示在第$i$天，交易了$j$次且當下沒有股票的最佳解<br>$dp1[i][j]$表示在第$i$天，交易了$j$次且當下持有股票的最佳解<br>轉移式：<br>$dp0[i][j] = max(dp0[i-1][j], dp1[i-1][j-1] + a[i])$<br>$dp1[i][j] = max(dp1[i-1][j], dp0[i-1][j] - a[i])$<br>最後答案就是$dp0[n][k]$。<br>但很明顯，此做法的時間、空間複雜度為$O(n^2)$。<br>嘗試將問題轉換成「不限制交易次數」，我們可以發現轉移式就會變成：<br>$dp0[i] = max(dp0[i-1], dp1[i-1] + a[i])$<br>$dp1[i] = max(dp1[i-1], dp0[i-1] - a[i])$<br>其中，$dp0[i]$表示在第$i$天，當下沒有股票的最佳解，$dp1[i]$表示在第$i$天，當下持有股票的最佳解。<br>接著，我們嘗試將每次交易都增加一個$p$元的手續費，此時轉移式變成：<br>$dp0[i] = max(dp0[i-1], dp1[i-1] + a[i])$<br>$dp1[i] = max(dp1[i-1], dp0[i-1] - a[i] - p)$<br>我們可以在$O(n)$的時間解決這個「有手續費且沒有交易次數限制」的問題。<br>最後，我們可以對$p$做二分搜找到某個$p$，使得發生最大值時的交易次數$\leq k$<br>最終答案就會是此演算法的輸出$+ pk$。 </p>
-<figure class="highlight cpp"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;bits/stdc++.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> int long long</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> ll long long</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> pb push_back</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> sz(x) (x).size()</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> all(x) (x).begin(), (x).end()</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> fastio cin.tie(0); ios_base::sync_with_stdio(false);</span></span><br><span class="line"><span class="keyword">using</span> <span class="keyword">namespace</span> std;</span><br><span class="line"><span class="type">const</span> <span class="type">int</span> maxn = <span class="number">2e6</span><span class="number">+5</span>;</span><br><span class="line"><span class="type">const</span> <span class="type">int</span> mod = <span class="number">1e9</span><span class="number">+7</span>; <span class="comment">// 998244353;</span></span><br><span class="line"><span class="type">const</span> ll inf = <span class="number">1ll</span> &lt;&lt; <span class="number">61</span>;</span><br><span class="line"><span class="keyword">typedef</span> pair&lt;<span class="type">int</span>,<span class="type">int</span>&gt; P;</span><br><span class="line"><span class="type">int</span> n, k;</span><br><span class="line"><span class="type">int</span> a[maxn];</span><br><span class="line">P dp0[maxn], dp1[maxn];</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">init</span><span class="params">()</span></span>&#123;</span><br><span class="line">    dp0[<span class="number">0</span>] = <span class="built_in">P</span>(<span class="number">0</span>, <span class="number">0</span>);</span><br><span class="line">    dp1[<span class="number">0</span>] = <span class="built_in">P</span>(-inf, <span class="number">0</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function">P <span class="title">cal</span><span class="params">(<span class="type">int</span> p)</span></span>&#123;</span><br><span class="line">    <span class="built_in">init</span>();</span><br><span class="line">    P res = &#123;<span class="number">0</span>, inf&#125;;</span><br><span class="line">    <span class="keyword">for</span>(<span class="type">int</span> i=<span class="number">1</span>;i&lt;=n;i++)&#123;</span><br><span class="line">        <span class="comment">// 沒股票</span></span><br><span class="line">        <span class="keyword">if</span>(dp0[i<span class="number">-1</span>] &gt; <span class="built_in">P</span>(dp1[i<span class="number">-1</span>].first + a[i] - p, dp1[i<span class="number">-1</span>].second - <span class="number">1</span>))</span><br><span class="line">            dp0[i] = dp0[i<span class="number">-1</span>];</span><br><span class="line">        <span class="keyword">else</span></span><br><span class="line">            dp0[i] = <span class="built_in">P</span>(dp1[i<span class="number">-1</span>].first + a[i] - p, dp1[i<span class="number">-1</span>].second - <span class="number">1</span>);</span><br><span class="line">        <span class="comment">// 有股票</span></span><br><span class="line">        <span class="keyword">if</span>(dp1[i<span class="number">-1</span>] &gt; <span class="built_in">P</span>(dp0[i<span class="number">-1</span>].first - a[i], dp0[i<span class="number">-1</span>].second))</span><br><span class="line">            dp1[i] = dp1[i<span class="number">-1</span>];</span><br><span class="line">        <span class="keyword">else</span></span><br><span class="line">            dp1[i] = <span class="built_in">P</span>(dp0[i<span class="number">-1</span>].first - a[i], dp0[i<span class="number">-1</span>].second);</span><br><span class="line">        res = <span class="built_in">max</span>(res, dp0[i]);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> res;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">solve</span><span class="params">()</span></span>&#123;</span><br><span class="line">    cin &gt;&gt; n &gt;&gt; k;</span><br><span class="line">    <span class="keyword">for</span>(<span class="type">int</span> i=<span class="number">1</span>;i&lt;=n;i++)</span><br><span class="line">        cin &gt;&gt; a[i];</span><br><span class="line">    <span class="type">int</span> l = <span class="number">0</span>, r = <span class="number">5e4</span>;</span><br><span class="line">    P res = <span class="built_in">cal</span>(<span class="number">0</span>);</span><br><span class="line">    <span class="type">int</span> pp;</span><br><span class="line">    <span class="keyword">if</span>(-res.second &lt;= k)&#123;</span><br><span class="line">        cout &lt;&lt; res.first;</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">while</span>(l &lt;= r)&#123;</span><br><span class="line">        <span class="type">int</span> mid = (l + r) / <span class="number">2</span>;</span><br><span class="line">        res = <span class="built_in">cal</span>(mid);</span><br><span class="line">        <span class="keyword">if</span>(-res.second &gt; k)&#123;</span><br><span class="line">            pp = mid;</span><br><span class="line">            l = mid + <span class="number">1</span>;</span><br><span class="line">        &#125; </span><br><span class="line">        <span class="keyword">else</span>&#123;</span><br><span class="line">            r = mid - <span class="number">1</span>;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    cout &lt;&lt; <span class="built_in">cal</span>(pp<span class="number">+1</span>).first + (pp<span class="number">+1</span>) * k;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">signed</span> <span class="title">main</span><span class="params">()</span></span>&#123;fastio</span><br><span class="line">    <span class="type">int</span> T = <span class="number">1</span>;</span><br><span class="line">    <span class="comment">//cin &gt;&gt; T;</span></span><br><span class="line">    <span class="keyword">while</span>(T--)&#123;</span><br><span class="line">        <span class="built_in">solve</span>();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<p>在TIOJ上要稍微壓一點常數（e.g. 二分搜範圍）</p>
-<p>WQA二分搜的過程其實有不少細節，請未來的我自行體會。<br>但就結論而言，一個簡單且可以避免錯誤的方法是「找最大的$p$使得最後的交易次數不滿足題目限制」<br>最後我們所需$p$就會是$p+1$(如果是離散的話)。 </p>
-<h2 id="Related-Problems"><a href="#Related-Problems" class="headerlink" title="Related Problems"></a>Related Problems</h2><p><a href="https://zerojudge.tw/ShowProblem?problemid=h926"> 美食博覽會 (k 值加大版)</a><br><a href="https://cses.fi/problemset/task/2086">Subarray Squares</a><br><a href="https://www.luogu.com.cn/problem/P2619">Tree I</a><br><a href="https://codeforces.com/contest/958/problem/E2">E2. Guard Duty (medium)</a><br><a href="https://codeforces.com/contest/1279/problem/F">F. New Year and Handle Change</a><br><a href="https://codeforces.com/contest/739/problem/E">E. Gosha is hunting</a> </p>
-]]></content>
-      <categories>
-        <category>Note</category>
-      </categories>
-      <tags>
-        <tag>code</tag>
-      </tags>
-  </entry>
-  <entry>
     <title>Multi-head Latent Attention</title>
     <url>/2025/12/30/mla/</url>
     <content><![CDATA[<p>This is a note about DeepSeek-V2 Multi-Head Latent Attention.<br><span id="more"></span></p>
@@ -719,21 +492,378 @@ $$
         <category>Note</category>
       </categories>
       <tags>
-        <tag>Machine Learning</tag>
         <tag>AI Efficiency</tag>
+        <tag>Machine Learning</tag>
       </tags>
   </entry>
   <entry>
-    <title>我的第一篇貼文</title>
-    <url>/2024/08/24/test/</url>
-    <content><![CDATA[<p>這是一篇測試用的文章。<br><span id="more"></span></p>
-<h2 id="首先先來測試一些基本的文字"><a href="#首先先來測試一些基本的文字" class="headerlink" title="首先先來測試一些基本的文字"></a>首先先來測試一些基本的文字</h2><p>嗨，你好。<br>I am Chung Pang Chun, and the handle I often use is bonginn.<br>1 + 1 = 2</p>
-<h2 id="測試數學式"><a href="#測試數學式" class="headerlink" title="測試數學式"></a>測試數學式</h2><p>$x^n + y^n = z^n$</p>
-<p>\begin{equation}<br>  \begin{aligned}<br>    \frac{-b + \sqrt{b^2 - 4ac}}{2a}<br>  \end{aligned}<br>\end{equation}</p>
-<h2 id="測試code"><a href="#測試code" class="headerlink" title="測試code"></a>測試code</h2><figure class="highlight cpp"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="keyword">using</span> <span class="keyword">namespace</span> std;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">()</span></span>&#123;</span><br><span class="line">    <span class="type">int</span> a, b;</span><br><span class="line">    cin &gt;&gt; a &gt;&gt; b;</span><br><span class="line">    cout &lt;&lt; a + b;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
-<h2 id="測試圖片"><a href="#測試圖片" class="headerlink" title="測試圖片"></a>測試圖片</h2><p><img src="/images/IMG_3033.JPG" alt="烏薩奇"></p>
-<h2 id="測試連結"><a href="#測試連結" class="headerlink" title="測試連結"></a>測試連結</h2><p><a href="https://codeforces.com/">codeforces</a></p>
+    <title>WQS 二分搜</title>
+    <url>/2025/01/08/WQS%E4%BA%8C%E5%88%86%E6%90%9C/</url>
+    <content><![CDATA[<p>一篇WQS二分搜的筆記，希望能讓自己不要這麼快忘記的個優化技巧。<br><span id="more"></span></p>
+<h2 id="Introduction"><a href="#Introduction" class="headerlink" title="Introduction"></a>Introduction</h2><p>WQS 二分搜又稱Aliens優化，是一個可以將二維的DP問題轉化成一個維度的優化技巧<br>複雜度可以從$O(N^2)$下降到$O(NlogC)$，但題目本身需要一些特性。<br>已知某函數$f(x)$為concave function，且我們有某種演算法可以在線性時間內求出$f(x) - px$的最大值及最大值<br>發生的位置($x_0$)。<br>接下來，我們畫出$p=0 - 5$的Cases :<br><img src="/images/Chart.png" alt="Credit : 4o"><br>可以發現，$x_0$隨著$p$上升逐漸下降！<br>因此若我們希望找到$f(x)$的最大值且$x&lt;=k$，我們可以對$p$做二分搜，找到最近的$p$使得$f(x) - px$的$x_0$$\le k$，最後答案就會是演算法的輸出$+ pk$。</p>
+<h2 id="Informal-Proof"><a href="#Informal-Proof" class="headerlink" title="Informal Proof"></a>Informal Proof</h2><p>至於為什麼當p越大，極值發生位置會越來越前面，簡單的證明如下：<br>當$f(x)$極值發生時的必要條件是$\nabla f(x) = 0$<br>$\nabla (f(x) - px) = \nabla f(x) - \nabla px = \nabla f(x) - p = 0$<br>已知$f(x)$是concave，因此 $\nabla f(x)$ 遞減<br>因此當$p \uparrow$，$x$必須越來越小。<br>然而，WQS真正困難的部分其實是證明$f(x)$是concave的，很多時候看到題目都會靠直覺猜它是concave，然後直接使用此性質（就像猜某個greedy方式會是最佳解）。</p>
+<h2 id="Intuition"><a href="#Intuition" class="headerlink" title="Intuition"></a>Intuition</h2><p>我覺得WQS二分搜有一個很好的intuition：<br>$f(x)$是某件事做了$x$次後得到的值，$p$就可以當作每做一次所需的成本，當成本($p$)越大，我們就不能做太多次操作（若我們的目標是maximize $f(x)$）。<br>因此！理所當然當$p$越大，$x_0$就會越小。</p>
+<h2 id="Application"><a href="#Application" class="headerlink" title="Application"></a>Application</h2><p>直接來看一題很經典的WQS二分的題目<a href="https://tioj.ck.tp.edu.tw/problems/2039">AI-666 賺多少</a>：<br>題目敘述：給定$n$天股票價格，求只能交易$k$次的情況下最多能賺多少錢？（假設最多同時只能持有一張股票）<br>這題有一個很簡單的dp解：<br>$dp0[i][j]$表示在第$i$天，交易了$j$次且當下沒有股票的最佳解<br>$dp1[i][j]$表示在第$i$天，交易了$j$次且當下持有股票的最佳解<br>轉移式：<br>$dp0[i][j] = max(dp0[i-1][j], dp1[i-1][j-1] + a[i])$<br>$dp1[i][j] = max(dp1[i-1][j], dp0[i-1][j] - a[i])$<br>最後答案就是$dp0[n][k]$。<br>但很明顯，此做法的時間、空間複雜度為$O(n^2)$。<br>嘗試將問題轉換成「不限制交易次數」，我們可以發現轉移式就會變成：<br>$dp0[i] = max(dp0[i-1], dp1[i-1] + a[i])$<br>$dp1[i] = max(dp1[i-1], dp0[i-1] - a[i])$<br>其中，$dp0[i]$表示在第$i$天，當下沒有股票的最佳解，$dp1[i]$表示在第$i$天，當下持有股票的最佳解。<br>接著，我們嘗試將每次交易都增加一個$p$元的手續費，此時轉移式變成：<br>$dp0[i] = max(dp0[i-1], dp1[i-1] + a[i])$<br>$dp1[i] = max(dp1[i-1], dp0[i-1] - a[i] - p)$<br>我們可以在$O(n)$的時間解決這個「有手續費且沒有交易次數限制」的問題。<br>最後，我們可以對$p$做二分搜找到某個$p$，使得發生最大值時的交易次數$\leq k$<br>最終答案就會是此演算法的輸出$+ pk$。 </p>
+<figure class="highlight cpp"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;bits/stdc++.h&gt;</span></span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> int long long</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> ll long long</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> pb push_back</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> sz(x) (x).size()</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> all(x) (x).begin(), (x).end()</span></span><br><span class="line"><span class="meta">#<span class="keyword">define</span> fastio cin.tie(0); ios_base::sync_with_stdio(false);</span></span><br><span class="line"><span class="keyword">using</span> <span class="keyword">namespace</span> std;</span><br><span class="line"><span class="type">const</span> <span class="type">int</span> maxn = <span class="number">2e6</span><span class="number">+5</span>;</span><br><span class="line"><span class="type">const</span> <span class="type">int</span> mod = <span class="number">1e9</span><span class="number">+7</span>; <span class="comment">// 998244353;</span></span><br><span class="line"><span class="type">const</span> ll inf = <span class="number">1ll</span> &lt;&lt; <span class="number">61</span>;</span><br><span class="line"><span class="keyword">typedef</span> pair&lt;<span class="type">int</span>,<span class="type">int</span>&gt; P;</span><br><span class="line"><span class="type">int</span> n, k;</span><br><span class="line"><span class="type">int</span> a[maxn];</span><br><span class="line">P dp0[maxn], dp1[maxn];</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">init</span><span class="params">()</span></span>&#123;</span><br><span class="line">    dp0[<span class="number">0</span>] = <span class="built_in">P</span>(<span class="number">0</span>, <span class="number">0</span>);</span><br><span class="line">    dp1[<span class="number">0</span>] = <span class="built_in">P</span>(-inf, <span class="number">0</span>);</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function">P <span class="title">cal</span><span class="params">(<span class="type">int</span> p)</span></span>&#123;</span><br><span class="line">    <span class="built_in">init</span>();</span><br><span class="line">    P res = &#123;<span class="number">0</span>, inf&#125;;</span><br><span class="line">    <span class="keyword">for</span>(<span class="type">int</span> i=<span class="number">1</span>;i&lt;=n;i++)&#123;</span><br><span class="line">        <span class="comment">// 沒股票</span></span><br><span class="line">        <span class="keyword">if</span>(dp0[i<span class="number">-1</span>] &gt; <span class="built_in">P</span>(dp1[i<span class="number">-1</span>].first + a[i] - p, dp1[i<span class="number">-1</span>].second - <span class="number">1</span>))</span><br><span class="line">            dp0[i] = dp0[i<span class="number">-1</span>];</span><br><span class="line">        <span class="keyword">else</span></span><br><span class="line">            dp0[i] = <span class="built_in">P</span>(dp1[i<span class="number">-1</span>].first + a[i] - p, dp1[i<span class="number">-1</span>].second - <span class="number">1</span>);</span><br><span class="line">        <span class="comment">// 有股票</span></span><br><span class="line">        <span class="keyword">if</span>(dp1[i<span class="number">-1</span>] &gt; <span class="built_in">P</span>(dp0[i<span class="number">-1</span>].first - a[i], dp0[i<span class="number">-1</span>].second))</span><br><span class="line">            dp1[i] = dp1[i<span class="number">-1</span>];</span><br><span class="line">        <span class="keyword">else</span></span><br><span class="line">            dp1[i] = <span class="built_in">P</span>(dp0[i<span class="number">-1</span>].first - a[i], dp0[i<span class="number">-1</span>].second);</span><br><span class="line">        res = <span class="built_in">max</span>(res, dp0[i]);</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">return</span> res;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">void</span> <span class="title">solve</span><span class="params">()</span></span>&#123;</span><br><span class="line">    cin &gt;&gt; n &gt;&gt; k;</span><br><span class="line">    <span class="keyword">for</span>(<span class="type">int</span> i=<span class="number">1</span>;i&lt;=n;i++)</span><br><span class="line">        cin &gt;&gt; a[i];</span><br><span class="line">    <span class="type">int</span> l = <span class="number">0</span>, r = <span class="number">5e4</span>;</span><br><span class="line">    P res = <span class="built_in">cal</span>(<span class="number">0</span>);</span><br><span class="line">    <span class="type">int</span> pp;</span><br><span class="line">    <span class="keyword">if</span>(-res.second &lt;= k)&#123;</span><br><span class="line">        cout &lt;&lt; res.first;</span><br><span class="line">        <span class="keyword">return</span>;</span><br><span class="line">    &#125;</span><br><span class="line">    <span class="keyword">while</span>(l &lt;= r)&#123;</span><br><span class="line">        <span class="type">int</span> mid = (l + r) / <span class="number">2</span>;</span><br><span class="line">        res = <span class="built_in">cal</span>(mid);</span><br><span class="line">        <span class="keyword">if</span>(-res.second &gt; k)&#123;</span><br><span class="line">            pp = mid;</span><br><span class="line">            l = mid + <span class="number">1</span>;</span><br><span class="line">        &#125; </span><br><span class="line">        <span class="keyword">else</span>&#123;</span><br><span class="line">            r = mid - <span class="number">1</span>;</span><br><span class="line">        &#125;</span><br><span class="line">    &#125;</span><br><span class="line">    cout &lt;&lt; <span class="built_in">cal</span>(pp<span class="number">+1</span>).first + (pp<span class="number">+1</span>) * k;</span><br><span class="line">&#125;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">signed</span> <span class="title">main</span><span class="params">()</span></span>&#123;fastio</span><br><span class="line">    <span class="type">int</span> T = <span class="number">1</span>;</span><br><span class="line">    <span class="comment">//cin &gt;&gt; T;</span></span><br><span class="line">    <span class="keyword">while</span>(T--)&#123;</span><br><span class="line">        <span class="built_in">solve</span>();</span><br><span class="line">    &#125;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<p>在TIOJ上要稍微壓一點常數（e.g. 二分搜範圍）</p>
+<p>WQA二分搜的過程其實有不少細節，請未來的我自行體會。<br>但就結論而言，一個簡單且可以避免錯誤的方法是「找最大的$p$使得最後的交易次數不滿足題目限制」<br>最後我們所需$p$就會是$p+1$(如果是離散的話)。 </p>
+<h2 id="Related-Problems"><a href="#Related-Problems" class="headerlink" title="Related Problems"></a>Related Problems</h2><p><a href="https://zerojudge.tw/ShowProblem?problemid=h926"> 美食博覽會 (k 值加大版)</a><br><a href="https://cses.fi/problemset/task/2086">Subarray Squares</a><br><a href="https://www.luogu.com.cn/problem/P2619">Tree I</a><br><a href="https://codeforces.com/contest/958/problem/E2">E2. Guard Duty (medium)</a><br><a href="https://codeforces.com/contest/1279/problem/F">F. New Year and Handle Change</a><br><a href="https://codeforces.com/contest/739/problem/E">E. Gosha is hunting</a> </p>
 ]]></content>
+      <categories>
+        <category>Note</category>
+      </categories>
+      <tags>
+        <tag>code</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>115 交大資工所丙組推甄心得</title>
+    <url>/2025/11/20/%E4%B8%99%E7%B5%84%E5%BF%83%E5%BE%97/</url>
+    <content><![CDATA[<p>這篇文章沒有面試過程！<br><span id="more"></span></p>
+<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>想了很久要不要寫這篇文，除了我認為我有點幸運到不值得參考、放榜結果神奇到不可思議外，更多的是我覺得有很多更厲害的人值得丙組正（逕）取的位置。但準備推甄資料的過程中受到太多人的幫助，抱持著善的循環的心，決定還是將自己的準備過程及心得記錄下來給學弟妹參考，也順便分享給未來的自己看。</p>
+<h1 id="丙組是什麼？"><a href="#丙組是什麼？" class="headerlink" title="丙組是什麼？"></a>丙組是什麼？</h1><p>交大資工系碩士班分成以下幾個所：</p>
+<ol>
+<li>資訊科學與工程研究所（資科工所）</li>
+<li>網路工程研究所（網工所）</li>
+<li>多媒體工程研究所（多工所）</li>
+<li>數據科學與工程研究所 </li>
+<li>資訊安全研究所</li>
+</ol>
+<p>基本上以上每個所都是正所（雖然有些人會認為資科工才是最正的所），其中在推甄入學時，資科工所又分為甲組和丙丁戊組，甲組和網工、多工所一起算在資訊聯招中，丙丁戊則是獨立的管道，推甄時與其他組最大的不同是過了書審後<strong>需要面試</strong>。丙組是實作導向的組別，簡單說就是<strong>不太看成績，以實作能力為主</strong>，適合那些成績普通但有實作能力的高手們；丁戊組分別是系統與網路管理實務（系計中）和校務資訊系統技術與實務（校計中）。丙組在入學後與資甲並沒有太大的差異，都會是資科工所，唯一的差別是可以找的<a href="https://www.cs.nycu.edu.tw/education/master/advisor">教授名單</a>不同，且教授在丙組的名額也會比較少（基本上是一個）。 </p>
+<p>可以到<a href="https://csdrive.cs.nycu.edu.tw/release/836ec023-938e-4b2b-9f45-a09d8985de8e">這裡</a>看更多關於丙組的介紹。</p>
+<h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><ul>
+<li>校系：交大資工系</li>
+<li>成績：$53.37\%$ (GPA $3.84 / 4.30$)</li>
+<li>專題：LLMs 量化演算法的研究</li>
+<li>國科會大專生研究計畫</li>
+<li>ICPC Regional 銅牌$\times$1、TOPC 銀牌$\times$2</li>
+<li>CPE Expert Level 6題 ($1.7\%$)</li>
+</ul>
+<p>我沒有任何論文發表和業界實習的經驗，在校成績可以也可以用慘來形容，除了一點點的演算法競賽成績和大專生計畫之外，其實與一般人沒什麼太大的差別。</p>
+<h1 id="推甄準備資料"><a href="#推甄準備資料" class="headerlink" title="推甄準備資料"></a>推甄準備資料</h1><h2 id="自傳"><a href="#自傳" class="headerlink" title="自傳"></a>自傳</h2><p>我的自傳分成四大部分：個人簡介、專題作品、學術研究、競賽與其他經驗</p>
+<ol>
+<li>個人簡介<br>我大概花了$\frac{1}{4}$到$\frac{1}{3}$頁介紹自己，簡單講自己有興趣的研究領域、對資工的熱愛以及個人特質。這部分對於申請資工所的自傳來說不是重點，因此不必花過多的篇幅，教授應該也不太會看。</li>
+<li>專題作品<br>我認為這部分是自傳中最重要的部分，這也是你最可以展現自己專業的地方。在這部分我列了三個專題作品，每個專題又會花大約$100$到$150$字描述，其中也包含我的畢業專題。我認為在這部分要盡可能地展現出「可量化的實際數據」，寫「我提升了模型的推論速度」不如寫「我將模型的推論速度提升$2$倍，同時降低$50\%$記憶體使用量」，同時也可以說明使用到了什麼技術、專題規模等，如果有GitHub連結也可以附上。</li>
+<li>學術研究<br>我在這部分放了我的國科會大專生研究計畫，簡單描述了我的計劃內容，研究動機，預期成果等，但計畫還在進行中，我就沒有花太多篇幅寫了。如果你有發表過論文，我認為在這部分可以花多一點篇幅，<strong>我相信丙組教授對於論文發表一定會加非常多分</strong>。</li>
+<li>競賽與其他經驗<br>主要放了我比過的演算法競賽成績和我在<a href="https://www.facebook.com/NYCUPCCA/">PCCA</a>的經歷。</li>
+</ol>
+<p>至於版面配置的部分，我是使用Canva簡單製作，<strong>共兩頁A4大小</strong>。我認為只要字不要太小太大，版面不要太雜亂，讓人看得舒服就可以了。</p>
+<h2 id="簡歷"><a href="#簡歷" class="headerlink" title="簡歷"></a>簡歷</h2><p>在我給我的導師看過我的自傳草稿後，他給我的回饋：</p>
+<blockquote>
+<p>Btw, I feel you have a very strong record. If you can have a CV summarizing your achievements as bullets, that will be much better. My two cents </p>
+</blockquote>
+<p>雖然交大資工所沒有叫你附上簡歷，但我認為在自傳的前一頁附上1-page CV 非常重要，據我的導師表示，他審聯招的自傳基本上只看第一頁，所以你用心寫的精美自傳教授可能只會花不到一分鐘看，這時候在第一頁就附上CV可以讓教授更快了解你的能力和特質。雖然說在丙組這種情況應該比較不會發生，但還是建議大家附上。</p>
+<p>我的CV基本上就是把我的自傳的內容精簡成一頁的Bullet Points，每個Project只列出兩三點最重要的成果，盡可能地可以讓人在一分鐘內看完的同時還能夠大致了解你的專業能力。</p>
+<h2 id="讀書計劃"><a href="#讀書計劃" class="headerlink" title="讀書計劃"></a>讀書計劃</h2><p>我發現網路上大多數人都會說交大的讀書計劃寫了教授也不會看，看了也不會信，但我認為在丙組這種實作導向的組別，<strong>讀書計劃更大的意義是展現出你對於自己有興趣的研究領域的掌握程度和未來規劃</strong>，好的讀書計劃可以讓教授更相信你對於該領域的了解和熱忱。</p>
+<p>至於什麼是好的讀書計劃，根據我的經驗，要盡可能地寫的<strong>具體</strong>一點，避免寫一些空泛的東西，例如：「入學前加強英文能力」、「學習xx領域相關知識」我認為就過於籠統；相對地，若能具體點出要學習的工具或語言、要貢獻的開源專案或是預計專研的技術細節，會讓整份讀書計畫更有說服力，也能展現你對該領域的現況有足夠的認知。</p>
+<h2 id="推薦信"><a href="#推薦信" class="headerlink" title="推薦信"></a>推薦信</h2><p>交大資工所規定需要至少兩封推薦信（上限是五封），如果你能找到五個人幫你寫推薦信當然最好，但我比較熟的教授就只有我的導師和專題教授，所以只有兩封。我的做法是在寄信詢問教授意願時會先附上我的自傳草稿，讓教授對你有基本的認識，教授答應後通常會要你提供一份推薦信的草稿，基本上就是以教授的視角來推薦自己，可以具體寫一些過去曾經在該教授指導下做過的專案、修過的課、合作過的計劃等等，格式大概會像是：</p>
+<blockquote>
+<p>本人在此誠摯推薦本系四年級學生XXX參加貴所的研究所推甄。在我過去所教授的YYY課程中，XXX展現出優異的學習態度與實作能力，並完成了ZZZ專案，成果不僅在效率上的表現相當突出，在與其他組員的合作上也展現了高度的溝通、協作能力，充分顯示出其卓越的研發與實作能力。<br>此外，XXX同學在本人的指導下於大三時完成專題研究「WWW」，他能獨立完成文獻整理、實驗設計與結果分析，展現了扎實的研究能力與批判思維。<br>… (其他事蹟)<br>我深信，XXX同學兼具學術潛力、研究能力與團隊合作精神。若能進入貴所繼續深造，必定能做出卓越的學術與實務貢獻。</p>
+</blockquote>
+<p>建議要早一點寄信給教授，可以的話就在暑假（七八月）就寄信詢問教授的意願，我是大概九月中才寄信給教授請他幫我寫推薦信，而我的專題教授是一個非常會趕Deadline的人，導致我是在推薦信上傳截止前一天凌晨四點才拿到我的第二封推薦信，非常刺激…，但還是非常感謝他們。</p>
+<h1 id="推甄結果"><a href="#推甄結果" class="headerlink" title="推甄結果"></a>推甄結果</h1><p>最後我的丙組推甄結果是<strong>逕取</strong>，也就是不用面試就可以直接錄取。丙丁戊組的逕取生應該可以算是第一批上岸的，因為丙組會在交大第一梯次放榜前的約兩個禮拜先公布初試通過名單，而逕取生被會同時收到直接錄取的電話通知。逕取最大的優點就是可以提早找指導教授，因為丙組的教授名單比較少，且每個教授名額只有一個，因此在丙組的熱門教授會非常搶手，而我也很幸運的被我的專題指導教授用那寶貴的一個名額收留。</p>
+<p>除了交大資工所丙組之外，我也申請了交大資訊聯招、數據所、清大資工所甲組、資應所、台大資工所、資工所人工智慧碩士班、網媒所，附上我的其他組的結果：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th>學校</th>
+<th>組別</th>
+<th>結果</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>交大</td>
+<td>資丙</td>
+<td><strong>逕取</strong></td>
+</tr>
+<tr>
+<td>交大</td>
+<td>資甲（資訊聯招）</td>
+<td>備取207</td>
+</tr>
+<tr>
+<td>交大</td>
+<td>網工所（資訊聯招）</td>
+<td>備取138</td>
+</tr>
+<tr>
+<td>交大</td>
+<td>多工所（資訊聯招）</td>
+<td>備取157</td>
+</tr>
+<tr>
+<td>交大</td>
+<td>數據所</td>
+<td>備取130</td>
+</tr>
+<tr>
+<td>清大</td>
+<td>資工所甲組</td>
+<td>落榜</td>
+</tr>
+<tr>
+<td>清大</td>
+<td>資應所</td>
+<td>初試不通過</td>
+</tr>
+<tr>
+<td>台大</td>
+<td>資工所</td>
+<td>落榜</td>
+</tr>
+<tr>
+<td>台大</td>
+<td>人工智慧碩士班</td>
+<td>落榜</td>
+</tr>
+<tr>
+<td>台大</td>
+<td>網媒所</td>
+<td>落榜</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>依我的成績台大全落榜很正常，但清大資工甲落榜和資應所沒過初試有點非常意外，果然所有需要看成績的組別都不適合我這種不會讀書的人…</p>
+<h1 id="導師的推甄審查標準"><a href="#導師的推甄審查標準" class="headerlink" title="導師的推甄審查標準"></a>導師的推甄審查標準</h1><p>前陣子跟我的導師吃導聚的時候他有跟我分享了他審推甄資料的標準，雖然他是負責資訊聯招的，但還是記錄一下給大家參考：</p>
+<ol>
+<li>備審基本上只看一頁，因此務必在第一頁附上1-page CV。</li>
+<li>會先用校名分組，台大交大一組、清大一組、成大一組、中字一組、其他，接著每個組會有一個GPA/$\%$數 $\rightarrow$ 基本審查分數的Mapping。</li>
+<li>大部分是校系名+$\%$數決定，但如果有以下幾點會另外加分：<ul>
+<li>發表論文：加大分</li>
+<li>國科會大專生研究計畫：加大分</li>
+<li>到中研院跟教授／院士實習：加分</li>
+<li>競賽（ICPC、資安競賽、CPE）：加分</li>
+<li>業界實習：加一點點分</li>
+</ul>
+</li>
+<li>沒什麼在看推薦信，除非是教授「親自」幫你寫，而且寫得很好。</li>
+<li>如果成績不好，基本上專題是唯一翻身機會。</li>
+</ol>
+<p>其中我覺得CP值最高的絕對是<strong>國科會大專生研究計畫</strong>，在教授的角度，申請這份計劃並通過或許就代表了你有一定的學術潛力和熱忱，而大專生研究計畫我覺得只要有心認真寫計畫書，且題目有一定的價值，通常都可以通過。如果有空可以再來寫一篇計畫書撰寫的心得。</p>
+<p>當然，每個教授的推甄審查標準非常不一樣，但可以肯定的是，<strong>顧好成績絕對是最安全的選擇</strong>。雖然近年資工成績內卷的非常嚴重，但我認為很大一部分的原因也是因為碩班推甄審查標準的不確定性而盲目內卷，如果標準公開一致，且成績不再是唯一，我覺得站在學生的角度來說或許會是一件好事。</p>
+<p>在這裡也順便分享我看到的兩個教授對於推甄審查的一些看法和建議，我覺得說得很好：</p>
+<ul>
+<li><a href="https://www.threads.com/@alex04072000/post/DOiSnVrExCq/%E6%88%91%E6%98%AF%E9%99%BD%E6%98%8E%E4%BA%A4%E5%A4%A7%E8%B3%87%E5%B7%A5%E7%B3%BB%E5%8A%A9%E7%90%86%E6%95%99%E6%8E%88%E4%BE%86%E8%81%8A%E8%81%8A%E6%8E%A8%E7%94%84%E8%B3%87%E6%96%99%E6%80%8E%E9%BA%BC%E6%BA%96%E5%82%99%E6%AF%8F%E5%B9%B4%E6%8E%A8%E7%94%84%E5%AD%A3%E6%88%91%E9%83%BD%E6%9C%83%E6%94%B6%E5%88%B0%E4%B8%8A%E7%99%BE%E4%BB%BD%E7%94%B3%E8%AB%8B%E5%8C%85%E5%90%AB%E7%B3%BB%E4%B8%8A%E5%AF%A9%E6%9F%A5%E8%88%87%E5%AD%B8%E7%94%9F%E9%A0%90%E7%B4%84%E9%9D%A2%E8%AB%87%E7%9C%8B%E4%BA%86%E9%80%99%E9%BA%BC%E5%A4%9A%E8%B3%87%E6%96%99%E5%BE%8C%E6%83%B3%E8%B7%9F%E5%90%8C%E5%AD%B8%E5%80%91%E5%88%86%E4%BA%AB%E5%BE%9E%E6%88%91%E7%9A%84%E8%A6%96%E8%A7%92%E4%BE%86%E7%9C%8B%E4%BB%80%E9%BA%BC%E6%89%8D%E6%98%AF%E7%9C%9F%E6%AD%A3?hl=zh-tw">劉育綸教授</a></li>
+<li><a href="https://www.facebook.com/share/p/17NwUtACmK/">吳凱強教授</a></li>
+</ul>
+<h1 id="結語"><a href="#結語" class="headerlink" title="結語"></a>結語</h1><p>我自認我推甄的整個過程真的非常非常幸運，我從最一開始就決定絕對不要考試，因為我覺得考碩班是一件非常浪費生命的事情，因此全心全力沒有退路地投入在推甄的準備。交大有專門開了實作導向的組別、我的專題教授剛好也在丙組教授名單中、直接逕取不用承受面試的壓力與不確定性、教授願意收留我，這些事情如果有任何一個沒有發生，我不知道我現在會在做什麼。<br>總之還是很感謝當初幫助我的所有人，也祝大家順利！</p>
+]]></content>
+      <categories>
+        <category>Misc</category>
+      </categories>
+      <tags>
+        <tag>Misc</tag>
+      </tags>
+  </entry>
+  <entry>
+    <title>Backpropagation 反向傳播</title>
+    <url>/2025/02/17/backpropagation/</url>
+    <content><![CDATA[<p>學PyTorch不如自己刻一次Backpropagation。<br><span id="more"></span></p>
+<h1 id="Opening"><a href="#Opening" class="headerlink" title="Opening"></a><strong>Opening</strong></h1><p>本篇文章是建立在對Gradient Descent、Neural Network架構有基礎了解的前提下，介紹如何透過Backpropagation來更新神經網路的參數，並且使用NumPy手刻出Backpropagation的過程。</p>
+<h1 id="Forward-向前傳播"><a href="#Forward-向前傳播" class="headerlink" title="Forward 向前傳播"></a><strong>Forward 向前傳播</strong></h1><p>首先，先來看神經網路的基本架構：</p>
+<p><p align="center">
+  <img src="/images/nn.png" alt="Credit: 4o">
+</p><br>這是一個簡易的神經網路，輸入、隱藏層皆有兩個Neurons加上一個Bias，輸出則有一個Neurons。對於某Neuron $X_i$，向前傳播過程可以寫成：</p>
+<div>
+$$
+\begin{aligned}
+Z^{(1)}_j &= \sum_{i=1}^{D} W^{(1)}_{ij}X_i + B^{(1)}_j \\
+A^{(1)}_j &= h(Z^{(1)}_j) \\
+Z^{(2)}_k &= \sum_{j=1}^{M} W^{(2)}_{jk}A^{(1)}_j + B^{(2)}_k \\
+A^{(2)}_k &= Z^{(2)}_k \\
+
+\text{E}(W,B) &= \frac{1}{2 } \sum_{k=1}^{K} (A^{(2)}_k - Y_k)^2 
+\end{aligned}
+$$
+</div>
+這裡的$h$表示隱藏層的激活函數（Activation Function），這裡因為以Regression為例，所以輸出層的激活函數為Identity Function。$\text{E}$表示Loss Function，這裡以Mean Squared Error為例。
+
+若僅考慮Variables/Activations的Dependency，可以寫成：
+<div>
+$$
+\begin{aligned}
+X_i \rightarrow W^{(1)}_{ij} \rightarrow Z^{(1)}_j \rightarrow A^{(1)}_j \rightarrow W^{(2)}_{jk} \rightarrow Z^{(2)}_k \rightarrow A^{(2)}_k \leftrightarrow Y_k \rightarrow \text{E}
+\end{aligned}
+$$
+</div>
+
+<h1 id="Backward-反向傳播"><a href="#Backward-反向傳播" class="headerlink" title="Backward 反向傳播"></a><strong>Backward 反向傳播</strong></h1><p>接著，我們要來更新$W^{(2)}$的參數，我們的目標是計算$\frac{\partial E}{\partial W^{(2)}_{jk}}$，但這個東西很難直接算出來，因此我們考慮使用<strong>Chain Rule</strong>，透過上式的Dependency關係將其拆成 :</p>
+<div>
+$$
+\begin{aligned}
+\frac{\partial E}{\partial W^{(2)}_{jk}} &= \frac{\partial E}{\partial Z^{(2)}_k} \cdot \frac{\partial Z^{(2)}_k}{\partial W^{(2)}_{jk}} \\
+\end{aligned}
+$$  
+</div>
+
+<p>透過一些簡單的偏微分計算，我們得到：</p>
+<div>
+$$
+\begin{aligned}
+\frac{\partial E}{\partial Z^{(2)}_k} &= A^{(2)}_k - Y_k = \delta_{k} \\
+\frac{\partial Z^{(2)}_k}{\partial W^{(2)}_{jk}} &= A^{(1)}_j
+\end{aligned}
+$$
+</div>
+接著再次使用Chain Rule，分解$\frac{\partial E}{\partial W^{(1)}_{ij}}$：
+<div>
+$$
+\begin{aligned}
+\frac{\partial E}{\partial W^{(1)}_{ij}} &= 
+\sum_{k=1}^{K} \left(
+\frac{\partial E}{\partial Z^{(2)}_k} \cdot
+\frac{\partial Z^{(2)}_k}{\partial Z^{(1)}_j} \cdot
+\frac{\partial Z^{(1)}_j}{\partial W^{(1)}_{ij}} \right) \\
+\end{aligned}
+$$
+</div>
+再複習一次大一微積分：
+<div>
+$$
+\begin{aligned}
+\frac{\partial E}{\partial Z^{(2)}_k} &= \delta_{k} \\
+\frac{\partial Z^{(2)}_k}{\partial Z^{(1)}_j} &= W^{(2)}_{jk} \cdot h^{'}(Z^{(1)}_j) \\
+\frac{\partial Z^{(1)}_j}{\partial W^{(1)}_{ij}} &= X_i
+\end{aligned}
+$$
+</div>
+
+<p>其中，我們定義第一層的誤差信號 $\delta_j$ 為：</p>
+<div>
+$$
+\begin{aligned}
+\delta_j &= \frac{\partial E}{\partial Z^{(1)}_j} = \sum_{k=1}^{K} W^{(2)}_{jk} \delta_k h'(Z^{(1)}_j)
+\end{aligned}
+$$
+</div>
+
+<p>將上述幾式整理，我們可以得到：</p>
+<div>
+$$
+\begin{aligned}
+\frac{\partial E}{\partial W^{(2)}_{jk}} &= \delta_{k} \cdot A^{(1)}_j \\
+\frac{\partial E}{\partial W^{(1)}_{ij}} &= \delta_{j} \cdot X_i
+\end{aligned}
+$$
+</div>
+
+<p>對於Bias的Gradient，其實就是：</p>
+<div>
+$$
+\begin{aligned}
+\frac{\partial E}{\partial B^{(2)}_{k}} &= \delta_{k} \\
+\frac{\partial E}{\partial B^{(1)}_{j}} &= \delta_{j}
+\end{aligned}
+$$
+</div>
+
+<p>如此一來我們就算完最複雜的部分了，可以進入實作了！</p>
+<h1 id="Implementation"><a href="#Implementation" class="headerlink" title="Implementation"></a><strong>Implementation</strong></h1><p>在開始實作前，我們先釐清各個矩陣的維度：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th>符號</th>
+<th>說明</th>
+<th>維度</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>$X$</td>
+<td>輸入矩陣</td>
+<td>(m, n_input)</td>
+</tr>
+<tr>
+<td>$W^{(1)}$</td>
+<td>第一層的權重矩陣</td>
+<td>(n_input, n_hidden)</td>
+</tr>
+<tr>
+<td>$B^{(1)}$</td>
+<td>第一層的偏差矩陣</td>
+<td>(1, n_hidden)</td>
+</tr>
+<tr>
+<td>$Z^{(1)}$</td>
+<td>第一層的線性組合</td>
+<td>(m, n_hidden)</td>
+</tr>
+<tr>
+<td>$A^{(1)}$</td>
+<td>第一層的激活函數結果</td>
+<td>(m, n_hidden)</td>
+</tr>
+<tr>
+<td>$W^{(2)}$</td>
+<td>第二層的權重矩陣</td>
+<td>(n_hidden, n_output)</td>
+</tr>
+<tr>
+<td>$B^{(2)}$</td>
+<td>第二層的偏差矩陣</td>
+<td>(1, n_output)</td>
+</tr>
+<tr>
+<td>$Z^{(2)}$</td>
+<td>第二層的線性組合</td>
+<td>(m, n_output)</td>
+</tr>
+<tr>
+<td>$A^{(2)}$</td>
+<td>第二層的激活函數結果</td>
+<td>(m, n_output)</td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>其中，m為Batch Size，n_input為輸入的特徵數，n_hidden為隱藏層的Neuron數，n_output為輸出的Neuron數。</p>
+<h2 id="Forward"><a href="#Forward" class="headerlink" title="Forward"></a><strong>Forward</strong></h2><figure class="highlight python"><table><tr><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">forward</span>(<span class="params">self, x</span>):</span><br><span class="line">    <span class="string">&quot;&quot;&quot;</span></span><br><span class="line"><span class="string">    Parameters:</span></span><br><span class="line"><span class="string">        x (numpy.ndarray): Input matrix of shape (batch_size, n_input).</span></span><br><span class="line"><span class="string"></span></span><br><span class="line"><span class="string">    Returns:</span></span><br><span class="line"><span class="string">        numpy.ndarray: Output matrix of shape (batch_size, n_output).</span></span><br><span class="line"><span class="string">    &quot;&quot;&quot;</span></span><br><span class="line">    <span class="variable language_">self</span>.z1 = np.matmul(x, <span class="variable language_">self</span>.w1) + <span class="variable language_">self</span>.b1</span><br><span class="line">    <span class="variable language_">self</span>.a1 = <span class="variable language_">self</span>.ReLU(<span class="variable language_">self</span>.z1)</span><br><span class="line">    <span class="variable language_">self</span>.z2 = np.matmul(<span class="variable language_">self</span>.a1, <span class="variable language_">self</span>.w2) + <span class="variable language_">self</span>.b2</span><br><span class="line">    <span class="variable language_">self</span>.a2 = <span class="variable language_">self</span>.z2</span><br><span class="line">    <span class="keyword">return</span> <span class="variable language_">self</span>.a2</span><br></pre></td></tr></table></figure>
+<p>在這裡選用ReLU作為隱藏層的Activation Function。</p>
+<h2 id="Backward"><a href="#Backward" class="headerlink" title="Backward"></a><strong>Backward</strong></h2><figure class="highlight python"><table><tr><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">backward</span>(<span class="params">self, X, y, pred, lr</span>):</span><br><span class="line">    <span class="string">&quot;&quot;&quot;</span></span><br><span class="line"><span class="string">    Parameters:</span></span><br><span class="line"><span class="string">        X (numpy.ndarray): Input matrix of shape (batch_size, n_input).</span></span><br><span class="line"><span class="string">        y (numpy.ndarray): Target matrix of shape (batch_size, n_output).</span></span><br><span class="line"><span class="string">        pred (numpy.ndarray): Output matrix of shape (batch_size, n_output).</span></span><br><span class="line"><span class="string">        lr (float): Learning rate.</span></span><br><span class="line"><span class="string">    &quot;&quot;&quot;</span></span><br><span class="line">    <span class="comment"># STEP 1</span></span><br><span class="line">    batch_size = X.shape[<span class="number">0</span>]</span><br><span class="line">    delta_output = <span class="number">2</span> * (pred - y) / batch_size</span><br><span class="line"></span><br><span class="line">    <span class="comment"># STEP 2</span></span><br><span class="line">    dw2 = np.matmul(<span class="variable language_">self</span>.a1.T, delta_output)</span><br><span class="line">    db2 = np.<span class="built_in">sum</span>(delta_output, axis=<span class="number">0</span>, keepdims=<span class="literal">True</span>)</span><br><span class="line"></span><br><span class="line">    <span class="comment"># STEP 3</span></span><br><span class="line">    delta_hidden = np.matmul(delta_output, <span class="variable language_">self</span>.w2.T) * <span class="variable language_">self</span>.ReLU_derivative(<span class="variable language_">self</span>.z1)</span><br><span class="line"></span><br><span class="line">    <span class="comment"># STEP 4</span></span><br><span class="line">    dw1 = np.matmul(X.T, delta_hidden)</span><br><span class="line">    db1 = np.<span class="built_in">sum</span>(delta_hidden, axis=<span class="number">0</span>, keepdims=<span class="literal">True</span>)</span><br><span class="line"></span><br><span class="line">    <span class="comment"># UPDATE</span></span><br><span class="line">    <span class="variable language_">self</span>.w1 -= lr * dw1</span><br><span class="line">    <span class="variable language_">self</span>.b1 -= lr * db1</span><br><span class="line">    <span class="variable language_">self</span>.w2 -= lr * dw2</span><br><span class="line">    <span class="variable language_">self</span>.b2 -= lr * db2</span><br></pre></td></tr></table></figure>
+<p>這裡的ReLU_derivative是ReLU的導函數（也可以換成其他Activation Function，但記得要differentiable）。<br>$ \delta_k  \text{加了} \frac{2}{\text{batch_size}}$ 常數是因為真正MSE函式應為 <code>np.mean((A - Y) ** 2)</code>，這個mean是指將$\textbf{所有資料}$的Square Error取平均，而上面的MSE公式則是為了讓$\textbf{單一資料}$Gradient計算時會比較漂亮，所以乘了一個$\frac{1}{2}$。<br>當初在寫Backward時一直不懂矩陣到底要怎麼乘，但後來發現只要想清楚上面的公式，再對照好矩陣維度就可以了！</p>
+<h2 id="Training"><a href="#Training" class="headerlink" title="Training"></a><strong>Training</strong></h2><p>再來來寫一個簡單的Training Function：<br><figure class="highlight python"><table><tr><td class="code"><pre><span class="line"><span class="keyword">def</span> <span class="title function_">train</span>(<span class="params">self, X, y, epochs=<span class="number">1000</span>, lr=<span class="number">0.01</span>, verbose=<span class="number">10</span></span>):</span><br><span class="line">   <span class="string">&quot;&quot;&quot;</span></span><br><span class="line"><span class="string">   Parameters:</span></span><br><span class="line"><span class="string">       X (numpy.ndarray): Input matrix of shape (batch_size, n_input).</span></span><br><span class="line"><span class="string">       y (numpy.ndarray): Target matrix of shape (batch_size, n_output).</span></span><br><span class="line"><span class="string">       epochs (int): Number of epochs.</span></span><br><span class="line"><span class="string">       lr (float): Learning rate.</span></span><br><span class="line"><span class="string">       verbose (int): Frequency of printing the loss</span></span><br><span class="line"><span class="string">   &quot;&quot;&quot;</span></span><br><span class="line">   <span class="keyword">for</span> epoch <span class="keyword">in</span> <span class="built_in">range</span>(epochs):</span><br><span class="line">       pred = <span class="variable language_">self</span>.forward(X)</span><br><span class="line">       loss = <span class="variable language_">self</span>.MSE(y, pred)</span><br><span class="line">       <span class="variable language_">self</span>.backward(X, y, pred, lr)</span><br><span class="line">       <span class="keyword">if</span> epoch % verbose == <span class="number">0</span>:</span><br><span class="line">           <span class="built_in">print</span>(<span class="string">f&quot;Epoch <span class="subst">&#123;epoch&#125;</span>, Loss: <span class="subst">&#123;loss:<span class="number">.6</span>f&#125;</span>&quot;</span>)</span><br></pre></td></tr></table></figure></p>
+<h1 id="Conclusion"><a href="#Conclusion" class="headerlink" title="Conclusion"></a><strong>Conclusion</strong></h1><p>這裡我以Regression為例，但實際上只要將Loss Function、Activation Function換掉，就可以應用在其他任務上。以下是一些常見的任務：</p>
+<div class="table-container">
+<table>
+<thead>
+<tr>
+<th><strong>Tasks</strong></th>
+<th><strong>輸出層 Activation Function</strong></th>
+<th><strong>Loss Function</strong></th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><strong>回歸（Regression）</strong></td>
+<td><code>Identity Function</code></td>
+<td><strong>Mean Squared Error</strong></td>
+</tr>
+<tr>
+<td><strong>二元分類（Binary Classification）</strong></td>
+<td><code>Sigmoid</code></td>
+<td><strong>Binary Cross-Entropy</strong></td>
+</tr>
+<tr>
+<td><strong>多類分類（Multi-Class Classification）</strong></td>
+<td><code>Softmax</code></td>
+<td><strong>Categorical Cross-Entropy</strong></td>
+</tr>
+</tbody>
+</table>
+</div>
+<p>再做一些微分時小小的修改就可以了。但我認為重點在於理解Backpropagation中使用Chain Rule的技巧，還有計算Partial Derivative的一些細節。</p>
+]]></content>
+      <categories>
+        <category>Note</category>
+      </categories>
+      <tags>
+        <tag>Machine Learning</tag>
+        <tag>code</tag>
+      </tags>
   </entry>
   <entry>
     <title>Revisiting Throughput</title>
@@ -922,145 +1052,15 @@ $$
       </tags>
   </entry>
   <entry>
-    <title>115 交大資工所丙組推甄心得</title>
-    <url>/2025/11/20/%E4%B8%99%E7%B5%84%E5%BF%83%E5%BE%97/</url>
-    <content><![CDATA[<p>這篇文章沒有面試過程！<br><span id="more"></span></p>
-<h1 id="前言"><a href="#前言" class="headerlink" title="前言"></a>前言</h1><p>想了很久要不要寫這篇文，除了我認為我有點幸運到不值得參考、放榜結果神奇到不可思議外，更多的是我覺得有很多更厲害的人值得丙組正（逕）取的位置。但準備推甄資料的過程中受到太多人的幫助，抱持著善的循環的心，決定還是將自己的準備過程及心得記錄下來給學弟妹參考，也順便分享給未來的自己看。</p>
-<h1 id="丙組是什麼？"><a href="#丙組是什麼？" class="headerlink" title="丙組是什麼？"></a>丙組是什麼？</h1><p>交大資工系碩士班分成以下幾個所：</p>
-<ol>
-<li>資訊科學與工程研究所（資科工所）</li>
-<li>網路工程研究所（網工所）</li>
-<li>多媒體工程研究所（多工所）</li>
-<li>數據科學與工程研究所 </li>
-<li>資訊安全研究所</li>
-</ol>
-<p>基本上以上每個所都是正所（雖然有些人會認為資科工才是最正的所），其中在推甄入學時，資科工所又分為甲組和丙丁戊組，甲組和網工、多工所一起算在資訊聯招中，丙丁戊則是獨立的管道，推甄時與其他組最大的不同是過了書審後<strong>需要面試</strong>。丙組是實作導向的組別，簡單說就是<strong>不太看成績，以實作能力為主</strong>，適合那些成績普通但有實作能力的高手們；丁戊組分別是系統與網路管理實務（系計中）和校務資訊系統技術與實務（校計中）。丙組在入學後與資甲並沒有太大的差異，都會是資科工所，唯一的差別是可以找的<a href="https://www.cs.nycu.edu.tw/education/master/advisor">教授名單</a>不同，且教授在丙組的名額也會比較少（基本上是一個）。 </p>
-<p>可以到<a href="https://csdrive.cs.nycu.edu.tw/release/836ec023-938e-4b2b-9f45-a09d8985de8e">這裡</a>看更多關於丙組的介紹。</p>
-<h1 id="背景"><a href="#背景" class="headerlink" title="背景"></a>背景</h1><ul>
-<li>校系：交大資工系</li>
-<li>成績：$53.37\%$ (GPA $3.84 / 4.30$)</li>
-<li>專題：LLMs 量化演算法的研究</li>
-<li>國科會大專生研究計畫</li>
-<li>ICPC Regional 銅牌$\times$1、TOPC 銀牌$\times$2</li>
-<li>CPE Expert Level 6題 ($1.7\%$)</li>
-</ul>
-<p>我沒有任何論文發表和業界實習的經驗，在校成績可以也可以用慘來形容，除了一點點的演算法競賽成績和大專生計畫之外，其實與一般人沒什麼太大的差別。</p>
-<h1 id="推甄準備資料"><a href="#推甄準備資料" class="headerlink" title="推甄準備資料"></a>推甄準備資料</h1><h2 id="自傳"><a href="#自傳" class="headerlink" title="自傳"></a>自傳</h2><p>我的自傳分成四大部分：個人簡介、專題作品、學術研究、競賽與其他經驗</p>
-<ol>
-<li>個人簡介<br>我大概花了$\frac{1}{4}$到$\frac{1}{3}$頁介紹自己，簡單講自己有興趣的研究領域、對資工的熱愛以及個人特質。這部分對於申請資工所的自傳來說不是重點，因此不必花過多的篇幅，教授應該也不太會看。</li>
-<li>專題作品<br>我認為這部分是自傳中最重要的部分，這也是你最可以展現自己專業的地方。在這部分我列了三個專題作品，每個專題又會花大約$100$到$150$字描述，其中也包含我的畢業專題。我認為在這部分要盡可能地展現出「可量化的實際數據」，寫「我提升了模型的推論速度」不如寫「我將模型的推論速度提升$2$倍，同時降低$50\%$記憶體使用量」，同時也可以說明使用到了什麼技術、專題規模等，如果有GitHub連結也可以附上。</li>
-<li>學術研究<br>我在這部分放了我的國科會大專生研究計畫，簡單描述了我的計劃內容，研究動機，預期成果等，但計畫還在進行中，我就沒有花太多篇幅寫了。如果你有發表過論文，我認為在這部分可以花多一點篇幅，<strong>我相信丙組教授對於論文發表一定會加非常多分</strong>。</li>
-<li>競賽與其他經驗<br>主要放了我比過的演算法競賽成績和我在<a href="https://www.facebook.com/NYCUPCCA/">PCCA</a>的經歷。</li>
-</ol>
-<p>至於版面配置的部分，我是使用Canva簡單製作，<strong>共兩頁A4大小</strong>。我認為只要字不要太小太大，版面不要太雜亂，讓人看得舒服就可以了。</p>
-<h2 id="簡歷"><a href="#簡歷" class="headerlink" title="簡歷"></a>簡歷</h2><p>在我給我的導師看過我的自傳草稿後，他給我的回饋：</p>
-<blockquote>
-<p>Btw, I feel you have a very strong record. If you can have a CV summarizing your achievements as bullets, that will be much better. My two cents </p>
-</blockquote>
-<p>雖然交大資工所沒有叫你附上簡歷，但我認為在自傳的前一頁附上1-page CV 非常重要，據我的導師表示，他審聯招的自傳基本上只看第一頁，所以你用心寫的精美自傳教授可能只會花不到一分鐘看，這時候在第一頁就附上CV可以讓教授更快了解你的能力和特質。雖然說在丙組這種情況應該比較不會發生，但還是建議大家附上。</p>
-<p>我的CV基本上就是把我的自傳的內容精簡成一頁的Bullet Points，每個Project只列出兩三點最重要的成果，盡可能地可以讓人在一分鐘內看完的同時還能夠大致了解你的專業能力。</p>
-<h2 id="讀書計劃"><a href="#讀書計劃" class="headerlink" title="讀書計劃"></a>讀書計劃</h2><p>我發現網路上大多數人都會說交大的讀書計劃寫了教授也不會看，看了也不會信，但我認為在丙組這種實作導向的組別，<strong>讀書計劃更大的意義是展現出你對於自己有興趣的研究領域的掌握程度和未來規劃</strong>，好的讀書計劃可以讓教授更相信你對於該領域的了解和熱忱。</p>
-<p>至於什麼是好的讀書計劃，根據我的經驗，要盡可能地寫的<strong>具體</strong>一點，避免寫一些空泛的東西，例如：「入學前加強英文能力」、「學習xx領域相關知識」我認為就過於籠統；相對地，若能具體點出要學習的工具或語言、要貢獻的開源專案或是預計專研的技術細節，會讓整份讀書計畫更有說服力，也能展現你對該領域的現況有足夠的認知。</p>
-<h2 id="推薦信"><a href="#推薦信" class="headerlink" title="推薦信"></a>推薦信</h2><p>交大資工所規定需要至少兩封推薦信（上限是五封），如果你能找到五個人幫你寫推薦信當然最好，但我比較熟的教授就只有我的導師和專題教授，所以只有兩封。我的做法是在寄信詢問教授意願時會先附上我的自傳草稿，讓教授對你有基本的認識，教授答應後通常會要你提供一份推薦信的草稿，基本上就是以教授的視角來推薦自己，可以具體寫一些過去曾經在該教授指導下做過的專案、修過的課、合作過的計劃等等，格式大概會像是：</p>
-<blockquote>
-<p>本人在此誠摯推薦本系四年級學生XXX參加貴所的研究所推甄。在我過去所教授的YYY課程中，XXX展現出優異的學習態度與實作能力，並完成了ZZZ專案，成果不僅在效率上的表現相當突出，在與其他組員的合作上也展現了高度的溝通、協作能力，充分顯示出其卓越的研發與實作能力。<br>此外，XXX同學在本人的指導下於大三時完成專題研究「WWW」，他能獨立完成文獻整理、實驗設計與結果分析，展現了扎實的研究能力與批判思維。<br>… (其他事蹟)<br>我深信，XXX同學兼具學術潛力、研究能力與團隊合作精神。若能進入貴所繼續深造，必定能做出卓越的學術與實務貢獻。</p>
-</blockquote>
-<p>建議要早一點寄信給教授，可以的話就在暑假（七八月）就寄信詢問教授的意願，我是大概九月中才寄信給教授請他幫我寫推薦信，而我的專題教授是一個非常會趕Deadline的人，導致我是在推薦信上傳截止前一天凌晨四點才拿到我的第二封推薦信，非常刺激…，但還是非常感謝他們。</p>
-<h1 id="推甄結果"><a href="#推甄結果" class="headerlink" title="推甄結果"></a>推甄結果</h1><p>最後我的丙組推甄結果是<strong>逕取</strong>，也就是不用面試就可以直接錄取。丙丁戊組的逕取生應該可以算是第一批上岸的，因為丙組會在交大第一梯次放榜前的約兩個禮拜先公布初試通過名單，而逕取生被會同時收到直接錄取的電話通知。逕取最大的優點就是可以提早找指導教授，因為丙組的教授名單比較少，且每個教授名額只有一個，因此在丙組的熱門教授會非常搶手，而我也很幸運的被我的專題指導教授用那寶貴的一個名額收留。</p>
-<p>除了交大資工所丙組之外，我也申請了交大資訊聯招、數據所、清大資工所甲組、資應所、台大資工所、資工所人工智慧碩士班、網媒所，附上我的其他組的結果：</p>
-<div class="table-container">
-<table>
-<thead>
-<tr>
-<th>學校</th>
-<th>組別</th>
-<th>結果</th>
-</tr>
-</thead>
-<tbody>
-<tr>
-<td>交大</td>
-<td>資丙</td>
-<td><strong>逕取</strong></td>
-</tr>
-<tr>
-<td>交大</td>
-<td>資甲（資訊聯招）</td>
-<td>備取207</td>
-</tr>
-<tr>
-<td>交大</td>
-<td>網工所（資訊聯招）</td>
-<td>備取138</td>
-</tr>
-<tr>
-<td>交大</td>
-<td>多工所（資訊聯招）</td>
-<td>備取157</td>
-</tr>
-<tr>
-<td>交大</td>
-<td>數據所</td>
-<td>備取130</td>
-</tr>
-<tr>
-<td>清大</td>
-<td>資工所甲組</td>
-<td>落榜</td>
-</tr>
-<tr>
-<td>清大</td>
-<td>資應所</td>
-<td>初試不通過</td>
-</tr>
-<tr>
-<td>台大</td>
-<td>資工所</td>
-<td>落榜</td>
-</tr>
-<tr>
-<td>台大</td>
-<td>人工智慧碩士班</td>
-<td>落榜</td>
-</tr>
-<tr>
-<td>台大</td>
-<td>網媒所</td>
-<td>落榜</td>
-</tr>
-</tbody>
-</table>
-</div>
-<p>依我的成績台大全落榜很正常，但清大資工甲落榜和資應所沒過初試有點非常意外，果然所有需要看成績的組別都不適合我這種不會讀書的人…</p>
-<h1 id="導師的推甄審查標準"><a href="#導師的推甄審查標準" class="headerlink" title="導師的推甄審查標準"></a>導師的推甄審查標準</h1><p>前陣子跟我的導師吃導聚的時候他有跟我分享了他審推甄資料的標準，雖然他是負責資訊聯招的，但還是記錄一下給大家參考：</p>
-<ol>
-<li>備審基本上只看一頁，因此務必在第一頁附上1-page CV。</li>
-<li>會先用校名分組，台大交大一組、清大一組、成大一組、中字一組、其他，接著每個組會有一個GPA/$\%$數 $\rightarrow$ 基本審查分數的Mapping。</li>
-<li>大部分是校系名+$\%$數決定，但如果有以下幾點會另外加分：<ul>
-<li>發表論文：加大分</li>
-<li>國科會大專生研究計畫：加大分</li>
-<li>到中研院跟教授／院士實習：加分</li>
-<li>競賽（ICPC、資安競賽、CPE）：加分</li>
-<li>業界實習：加一點點分</li>
-</ul>
-</li>
-<li>沒什麼在看推薦信，除非是教授「親自」幫你寫，而且寫得很好。</li>
-<li>如果成績不好，基本上專題是唯一翻身機會。</li>
-</ol>
-<p>其中我覺得CP值最高的絕對是<strong>國科會大專生研究計畫</strong>，在教授的角度，申請這份計劃並通過或許就代表了你有一定的學術潛力和熱忱，而大專生研究計畫我覺得只要有心認真寫計畫書，且題目有一定的價值，通常都可以通過。如果有空可以再來寫一篇計畫書撰寫的心得。</p>
-<p>當然，每個教授的推甄審查標準非常不一樣，但可以肯定的是，<strong>顧好成績絕對是最安全的選擇</strong>。雖然近年資工成績內卷的非常嚴重，但我認為很大一部分的原因也是因為碩班推甄審查標準的不確定性而盲目內卷，如果標準公開一致，且成績不再是唯一，我覺得站在學生的角度來說或許會是一件好事。</p>
-<p>在這裡也順便分享我看到的兩個教授對於推甄審查的一些看法和建議，我覺得說得很好：</p>
-<ul>
-<li><a href="https://www.threads.com/@alex04072000/post/DOiSnVrExCq/%E6%88%91%E6%98%AF%E9%99%BD%E6%98%8E%E4%BA%A4%E5%A4%A7%E8%B3%87%E5%B7%A5%E7%B3%BB%E5%8A%A9%E7%90%86%E6%95%99%E6%8E%88%E4%BE%86%E8%81%8A%E8%81%8A%E6%8E%A8%E7%94%84%E8%B3%87%E6%96%99%E6%80%8E%E9%BA%BC%E6%BA%96%E5%82%99%E6%AF%8F%E5%B9%B4%E6%8E%A8%E7%94%84%E5%AD%A3%E6%88%91%E9%83%BD%E6%9C%83%E6%94%B6%E5%88%B0%E4%B8%8A%E7%99%BE%E4%BB%BD%E7%94%B3%E8%AB%8B%E5%8C%85%E5%90%AB%E7%B3%BB%E4%B8%8A%E5%AF%A9%E6%9F%A5%E8%88%87%E5%AD%B8%E7%94%9F%E9%A0%90%E7%B4%84%E9%9D%A2%E8%AB%87%E7%9C%8B%E4%BA%86%E9%80%99%E9%BA%BC%E5%A4%9A%E8%B3%87%E6%96%99%E5%BE%8C%E6%83%B3%E8%B7%9F%E5%90%8C%E5%AD%B8%E5%80%91%E5%88%86%E4%BA%AB%E5%BE%9E%E6%88%91%E7%9A%84%E8%A6%96%E8%A7%92%E4%BE%86%E7%9C%8B%E4%BB%80%E9%BA%BC%E6%89%8D%E6%98%AF%E7%9C%9F%E6%AD%A3?hl=zh-tw">劉育綸教授</a></li>
-<li><a href="https://www.facebook.com/share/p/17NwUtACmK/">吳凱強教授</a></li>
-</ul>
-<h1 id="結語"><a href="#結語" class="headerlink" title="結語"></a>結語</h1><p>我自認我推甄的整個過程真的非常非常幸運，我從最一開始就決定絕對不要考試，因為我覺得考碩班是一件非常浪費生命的事情，因此全心全力沒有退路地投入在推甄的準備。交大有專門開了實作導向的組別、我的專題教授剛好也在丙組教授名單中、直接逕取不用承受面試的壓力與不確定性、教授願意收留我，這些事情如果有任何一個沒有發生，我不知道我現在會在做什麼。<br>總之還是很感謝當初幫助我的所有人，也祝大家順利！</p>
+    <title>我的第一篇貼文</title>
+    <url>/2024/08/24/test/</url>
+    <content><![CDATA[<p>這是一篇測試用的文章。<br><span id="more"></span></p>
+<h2 id="首先先來測試一些基本的文字"><a href="#首先先來測試一些基本的文字" class="headerlink" title="首先先來測試一些基本的文字"></a>首先先來測試一些基本的文字</h2><p>嗨，你好。<br>I am Chung Pang Chun, and the handle I often use is bonginn.<br>1 + 1 = 2</p>
+<h2 id="測試數學式"><a href="#測試數學式" class="headerlink" title="測試數學式"></a>測試數學式</h2><p>$x^n + y^n = z^n$</p>
+<p>\begin{equation}<br>  \begin{aligned}<br>    \frac{-b + \sqrt{b^2 - 4ac}}{2a}<br>  \end{aligned}<br>\end{equation}</p>
+<h2 id="測試code"><a href="#測試code" class="headerlink" title="測試code"></a>測試code</h2><figure class="highlight cpp"><table><tr><td class="code"><pre><span class="line"><span class="meta">#<span class="keyword">include</span> <span class="string">&lt;iostream&gt;</span></span></span><br><span class="line"><span class="keyword">using</span> <span class="keyword">namespace</span> std;</span><br><span class="line"></span><br><span class="line"><span class="function"><span class="type">int</span> <span class="title">main</span><span class="params">()</span></span>&#123;</span><br><span class="line">    <span class="type">int</span> a, b;</span><br><span class="line">    cin &gt;&gt; a &gt;&gt; b;</span><br><span class="line">    cout &lt;&lt; a + b;</span><br><span class="line">&#125;</span><br></pre></td></tr></table></figure>
+<h2 id="測試圖片"><a href="#測試圖片" class="headerlink" title="測試圖片"></a>測試圖片</h2><p><img src="/images/IMG_3033.JPG" alt="烏薩奇"></p>
+<h2 id="測試連結"><a href="#測試連結" class="headerlink" title="測試連結"></a>測試連結</h2><p><a href="https://codeforces.com/">codeforces</a></p>
 ]]></content>
-      <categories>
-        <category>Misc</category>
-      </categories>
-      <tags>
-        <tag>Misc</tag>
-      </tags>
   </entry>
 </search>
