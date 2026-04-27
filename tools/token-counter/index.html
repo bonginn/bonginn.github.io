@@ -1,0 +1,533 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LLM Token Counter · bonginn</title>
+<meta name="description" content="Count tokens and estimate API cost for GPT, Claude, and other LLMs. All processing is local.">
+<script>
+(function() {
+  const stored = localStorage.getItem('tools-theme');
+  const theme = stored || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  document.documentElement.setAttribute('data-theme', theme);
+})();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #fafafa;
+    --card: #ffffff;
+    --text: #1a1a1a;
+    --muted: #666;
+    --border: #e5e5e5;
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --accent-soft: rgba(37, 99, 235, 0.08);
+    --success: #16a34a;
+    --warn: #d97706;
+  }
+  [data-theme="dark"] {
+    --bg: #0a0a0a;
+    --card: #141414;
+    --text: #f5f5f5;
+    --muted: #888;
+    --border: #222;
+    --accent: #60a5fa;
+    --accent-hover: #93c5fd;
+    --accent-soft: rgba(96, 165, 250, 0.1);
+    --success: #4ade80;
+    --warn: #fbbf24;
+  }
+  .theme-toggle {
+    position: fixed;
+    top: 1.25rem;
+    right: 1.25rem;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    transition: border-color 0.2s, color 0.2s, transform 0.2s;
+  }
+  .theme-toggle:hover { border-color: var(--accent); color: var(--accent); transform: rotate(15deg); }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  .container {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 3rem 1.5rem;
+  }
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--muted);
+    text-decoration: none;
+    margin-bottom: 1.5rem;
+    font-size: 0.9rem;
+  }
+  .back:hover { color: var(--accent); }
+  h1 {
+    font-family: 'EB Garamond', Georgia, serif;
+    font-size: 2.6rem;
+    font-weight: 500;
+    margin: 0 0 0.5rem;
+    letter-spacing: -0.01em;
+  }
+  .subtitle { color: var(--muted); margin: 0 0 2rem; }
+
+  .controls {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+    display: flex;
+    gap: 1rem;
+    align-items: center;
+    flex-wrap: wrap;
+  }
+  .controls label { font-size: 0.9rem; color: var(--muted); }
+  select {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.45rem 0.7rem;
+    font-size: 0.9rem;
+    min-width: 220px;
+  }
+  textarea {
+    width: 100%;
+    min-height: 280px;
+    background: var(--card);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1rem 1.25rem;
+    font-size: 0.95rem;
+    font-family: inherit;
+    line-height: 1.6;
+    resize: vertical;
+  }
+  textarea:focus {
+    outline: none;
+    border-color: var(--accent);
+  }
+
+  .stats {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(140px, 1fr));
+    gap: 0.75rem;
+    margin-top: 1rem;
+  }
+  .stat {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 10px;
+    padding: 1rem 1.1rem;
+  }
+  .stat .label {
+    font-size: 0.78rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+    margin-bottom: 0.4rem;
+  }
+  .stat .value {
+    font-family: 'EB Garamond', Georgia, serif;
+    font-size: 2.4rem;
+    font-weight: 500;
+    font-variant-numeric: tabular-nums;
+    letter-spacing: -0.01em;
+    line-height: 1.1;
+  }
+  .stat.primary .value { color: var(--accent); }
+  .stat .sub { font-size: 0.8rem; color: var(--muted); margin-top: 0.2rem; }
+
+  .actions { display: flex; gap: 0.5rem; margin-top: 1rem; }
+  .btn-link {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.5rem 0.9rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+  .btn-link:hover { border-color: var(--accent); color: var(--accent); }
+
+  .note {
+    margin-top: 1.5rem;
+    padding: 0.85rem 1rem;
+    background: var(--accent-soft);
+    border-radius: 8px;
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .tokens-section {
+    margin-top: 1rem;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    overflow: hidden;
+  }
+  .tokens-header {
+    padding: 0.85rem 1.25rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    cursor: pointer;
+    user-select: none;
+  }
+  .tokens-header:hover { background: var(--accent-soft); }
+  .tokens-header h3 {
+    margin: 0;
+    font-size: 0.95rem;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.06em;
+    font-weight: 600;
+  }
+  .tokens-header .toggle {
+    font-size: 0.85rem;
+    color: var(--muted);
+  }
+  .tokens-tabs {
+    display: flex;
+    gap: 0.25rem;
+    padding: 0 1.25rem;
+    border-bottom: 1px solid var(--border);
+  }
+  .tab {
+    background: none;
+    border: none;
+    padding: 0.6rem 0.9rem;
+    cursor: pointer;
+    color: var(--muted);
+    font-size: 0.85rem;
+    border-bottom: 2px solid transparent;
+    margin-bottom: -1px;
+  }
+  .tab.active { color: var(--accent); border-bottom-color: var(--accent); }
+  .tokens-body {
+    padding: 1rem 1.25rem;
+    max-height: 400px;
+    overflow-y: auto;
+    font-family: 'SF Mono', 'Monaco', 'Menlo', monospace;
+    font-size: 0.85rem;
+    line-height: 1.9;
+  }
+  .token-chip {
+    display: inline-block;
+    padding: 0.1rem 0.35rem;
+    border-radius: 4px;
+    margin: 0.1rem 0;
+    white-space: pre;
+  }
+  .token-chip:hover {
+    outline: 2px solid var(--accent);
+    outline-offset: 1px;
+  }
+  .ids-view {
+    color: var(--text);
+    word-break: break-all;
+  }
+  .id-num {
+    display: inline-block;
+    padding: 0.1rem 0.35rem;
+    border-radius: 4px;
+    margin: 0.1rem 0.15rem;
+    background: var(--bg);
+    border: 1px solid var(--border);
+    font-variant-numeric: tabular-nums;
+  }
+  .empty-tokens {
+    color: var(--muted);
+    text-align: center;
+    padding: 1rem 0;
+  }
+  .loading {
+    display: inline-block;
+    width: 12px; height: 12px;
+    border: 2px solid var(--border);
+    border-top-color: var(--accent);
+    border-radius: 50%;
+    animation: spin 0.7s linear infinite;
+    vertical-align: middle;
+    margin-left: 0.4rem;
+  }
+  @keyframes spin { to { transform: rotate(360deg); } }
+</style>
+</head>
+<body>
+<button id="themeToggle" class="theme-toggle" aria-label="Toggle theme"></button>
+<div class="container">
+  <a href="/tools/" class="back">← tools</a>
+  <h1>LLM Token Counter</h1>
+  <p class="subtitle">Accurate token counts for GPT and Llama models, with token-by-token breakdown.</p>
+
+  <div class="controls">
+    <label for="model">Model:</label>
+    <select id="model">
+      <optgroup label="OpenAI">
+        <option value="gpt-4o" data-encoding="o200k" selected>GPT-4o</option>
+        <option value="gpt-4o-mini" data-encoding="o200k">GPT-4o mini</option>
+        <option value="gpt-4-turbo" data-encoding="cl100k">GPT-4 Turbo</option>
+        <option value="gpt-4" data-encoding="cl100k">GPT-4</option>
+        <option value="gpt-3.5-turbo" data-encoding="cl100k">GPT-3.5 Turbo</option>
+      </optgroup>
+      <optgroup label="Meta Llama 3.x (open-weight)">
+        <option value="llama-3" data-encoding="llama3">Llama 3 / 3.1 / 3.2 / 3.3</option>
+      </optgroup>
+    </select>
+  </div>
+
+  <textarea id="input" placeholder="Paste or type text here..."></textarea>
+
+  <div class="actions">
+    <button class="btn-link" id="clearBtn">Clear</button>
+    <button class="btn-link" id="pasteBtn">Paste from clipboard</button>
+    <button class="btn-link" id="sampleBtn">Load sample</button>
+  </div>
+
+  <div class="stats">
+    <div class="stat primary">
+      <div class="label">Tokens <span id="loading" class="loading" style="display:none;"></span></div>
+      <div class="value" id="tokenCount">0</div>
+      <div class="sub" id="ratio">—</div>
+    </div>
+    <div class="stat">
+      <div class="label">Characters</div>
+      <div class="value" id="charCount">0</div>
+    </div>
+    <div class="stat">
+      <div class="label">Words</div>
+      <div class="value" id="wordCount">0</div>
+    </div>
+    <div class="stat">
+      <div class="label">Lines</div>
+      <div class="value" id="lineCount">0</div>
+    </div>
+  </div>
+
+  <div class="tokens-section">
+    <div class="tokens-header" id="tokensHeader">
+      <h3>Token breakdown</h3>
+      <span class="toggle" id="tokensToggle">▼ show</span>
+    </div>
+    <div id="tokensContent" style="display: none;">
+      <div class="tokens-tabs">
+        <button class="tab active" data-view="text">Text</button>
+        <button class="tab" data-view="ids">IDs</button>
+      </div>
+      <div class="tokens-body" id="tokensBody">
+        <div class="empty-tokens">Type something above to see tokens.</div>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/gpt-tokenizer@2.6.0/dist/cl100k_base.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/gpt-tokenizer@2.6.0/dist/o200k_base.js"></script>
+<script>
+const input = document.getElementById('input');
+const modelSelect = document.getElementById('model');
+const tokenCount = document.getElementById('tokenCount');
+const charCount = document.getElementById('charCount');
+const wordCount = document.getElementById('wordCount');
+const lineCount = document.getElementById('lineCount');
+const ratio = document.getElementById('ratio');
+const loading = document.getElementById('loading');
+const tokensHeader = document.getElementById('tokensHeader');
+const tokensToggle = document.getElementById('tokensToggle');
+const tokensContent = document.getElementById('tokensContent');
+const tokensBody = document.getElementById('tokensBody');
+
+const TOKEN_COLORS = [
+  'rgba(239, 68, 68, 0.18)',
+  'rgba(245, 158, 11, 0.18)',
+  'rgba(34, 197, 94, 0.18)',
+  'rgba(14, 165, 233, 0.18)',
+  'rgba(168, 85, 247, 0.18)',
+  'rgba(236, 72, 153, 0.18)',
+];
+let currentView = 'text';
+let tokensVisible = false;
+
+const SAMPLE = `The quick brown fox jumps over the lazy dog. This sentence is famously used to demonstrate every letter in the English alphabet. In the world of LLMs, tokenization breaks text into smaller units called tokens — these are the actual units a model processes, not characters or words.
+
+For example, the word "tokenization" might become two tokens: "token" + "ization". Different models use different tokenizers, so the same text can produce different counts.`;
+
+let llamaTokenizer = null;
+let llamaLoading = null;
+function loadLlama() {
+  if (llamaTokenizer) return Promise.resolve();
+  if (llamaLoading) return llamaLoading;
+  llamaLoading = (async () => {
+    const mod = await import('https://cdn.jsdelivr.net/npm/llama3-tokenizer-js@1.2.0/+esm');
+    const candidate = mod.default || mod.llama3Tokenizer || mod;
+    if (!candidate || typeof candidate.encode !== 'function') {
+      throw new Error('Llama tokenizer not exported as expected');
+    }
+    llamaTokenizer = candidate;
+  })();
+  return llamaLoading;
+}
+
+function getTokenizer(encoding) {
+  if (encoding === 'cl100k') return GPTTokenizer_cl100k_base;
+  if (encoding === 'o200k') return GPTTokenizer_o200k_base;
+  if (encoding === 'llama3') return llamaTokenizer;
+  return null;
+}
+
+function countTokens(text, encoding) {
+  if (!text) return 0;
+  const tk = getTokenizer(encoding);
+  if (tk) return tk.encode(text).length;
+  return Math.ceil(text.length / 4);
+}
+
+function renderTokens(text, encoding) {
+  if (!tokensVisible) return;
+  if (!text) {
+    tokensBody.innerHTML = '<div class="empty-tokens">Type something above to see tokens.</div>';
+    return;
+  }
+  const tk = getTokenizer(encoding);
+  if (!tk) {
+    tokensBody.innerHTML = '<div class="empty-tokens">Tokenizer not loaded yet. Please wait a moment and try again.</div>';
+    return;
+  }
+  const ids = tk.encode(text);
+  if (currentView === 'text') {
+    const chips = ids.map((id, i) => {
+      let tokenStr;
+      try {
+        tokenStr = encoding === 'llama3' ? tk.decode([id], false, false) : tk.decode([id]);
+      } catch (e) {
+        tokenStr = `<${id}>`;
+      }
+      const display = String(tokenStr).replace(/\n/g, '↵\n');
+      const color = TOKEN_COLORS[i % TOKEN_COLORS.length];
+      const escaped = escapeHtml(display);
+      return `<span class="token-chip" style="background:${color}" title="ID: ${id}">${escaped}</span>`;
+    }).join('');
+    tokensBody.innerHTML = `<div>${chips}</div>`;
+  } else {
+    const nums = ids.map(id => `<span class="id-num">${id}</span>`).join('');
+    tokensBody.innerHTML = `<div class="ids-view">${nums}</div>`;
+  }
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+}
+
+async function update() {
+  const text = input.value;
+  const opt = modelSelect.options[modelSelect.selectedIndex];
+  const encoding = opt.dataset.encoding;
+
+  loading.style.display = 'inline-block';
+
+  if (encoding === 'llama3') {
+    try { await loadLlama(); }
+    catch (e) {
+      tokenCount.textContent = 'error';
+      loading.style.display = 'none';
+      return;
+    }
+  }
+
+  setTimeout(() => {
+    const tokens = countTokens(text, encoding);
+    const chars = text.length;
+    const words = text.trim() ? text.trim().split(/\s+/).length : 0;
+    const lines = text ? text.split('\n').length : 0;
+
+    tokenCount.textContent = tokens.toLocaleString();
+    charCount.textContent = chars.toLocaleString();
+    wordCount.textContent = words.toLocaleString();
+    lineCount.textContent = lines.toLocaleString();
+    ratio.textContent = chars > 0 ? `${(chars / Math.max(tokens, 1)).toFixed(2)} chars / token` : '—';
+
+    renderTokens(text, encoding);
+    loading.style.display = 'none';
+  }, 0);
+}
+
+input.addEventListener('input', update);
+modelSelect.addEventListener('change', update);
+
+document.getElementById('clearBtn').addEventListener('click', () => {
+  input.value = '';
+  update();
+});
+document.getElementById('pasteBtn').addEventListener('click', async () => {
+  try {
+    const text = await navigator.clipboard.readText();
+    input.value = text;
+    update();
+  } catch (e) {
+    alert('Clipboard access denied. Please paste manually (Cmd/Ctrl+V).');
+  }
+});
+document.getElementById('sampleBtn').addEventListener('click', () => {
+  input.value = SAMPLE;
+  update();
+});
+
+tokensHeader.addEventListener('click', () => {
+  tokensVisible = !tokensVisible;
+  tokensContent.style.display = tokensVisible ? 'block' : 'none';
+  tokensToggle.textContent = tokensVisible ? '▲ hide' : '▼ show';
+  if (tokensVisible) update();
+});
+
+document.querySelectorAll('.tab').forEach(tab => {
+  tab.addEventListener('click', () => {
+    document.querySelectorAll('.tab').forEach(t => t.classList.remove('active'));
+    tab.classList.add('active');
+    currentView = tab.dataset.view;
+    update();
+  });
+});
+
+update();
+
+const SUN = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>';
+const MOON = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+const themeToggle = document.getElementById('themeToggle');
+function syncIcon() {
+  themeToggle.innerHTML = document.documentElement.getAttribute('data-theme') === 'dark' ? SUN : MOON;
+}
+syncIcon();
+themeToggle.addEventListener('click', () => {
+  const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('tools-theme', next);
+  syncIcon();
+});
+</script>
+</body>
+</html>

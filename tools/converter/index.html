@@ -1,0 +1,432 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Image Converter · bonginn</title>
+<script>
+(function() {
+  const stored = localStorage.getItem('tools-theme');
+  const theme = stored || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  document.documentElement.setAttribute('data-theme', theme);
+})();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #fafafa;
+    --card: #ffffff;
+    --text: #1a1a1a;
+    --muted: #666;
+    --border: #e5e5e5;
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --accent-soft: rgba(37, 99, 235, 0.08);
+    --success: #16a34a;
+    --error: #dc2626;
+  }
+  [data-theme="dark"] {
+    --bg: #0a0a0a;
+    --card: #141414;
+    --text: #f5f5f5;
+    --muted: #888;
+    --border: #222;
+    --accent: #60a5fa;
+    --accent-hover: #93c5fd;
+    --accent-soft: rgba(96, 165, 250, 0.1);
+    --success: #4ade80;
+    --error: #f87171;
+  }
+  .theme-toggle {
+    position: fixed;
+    top: 1.25rem;
+    right: 1.25rem;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    transition: border-color 0.2s, color 0.2s, transform 0.2s;
+  }
+  .theme-toggle:hover { border-color: var(--accent); color: var(--accent); transform: rotate(15deg); }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+  }
+  .container {
+    max-width: 760px;
+    margin: 0 auto;
+    padding: 3rem 1.5rem;
+  }
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--muted);
+    text-decoration: none;
+    margin-bottom: 1.5rem;
+    font-size: 0.9rem;
+  }
+  .back:hover { color: var(--accent); }
+  h1 {
+    font-family: 'EB Garamond', Georgia, serif;
+    font-size: 2.6rem;
+    font-weight: 500;
+    margin: 0 0 0.5rem;
+    letter-spacing: -0.01em;
+  }
+  .subtitle { color: var(--muted); margin: 0 0 2rem; }
+
+  .controls {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+  }
+  .control-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.85rem;
+  }
+  .control-row:last-child { margin-bottom: 0; }
+  .control-row label {
+    font-size: 0.9rem;
+    color: var(--muted);
+    min-width: 90px;
+  }
+  select, input[type="number"] {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.9rem;
+  }
+  input[type="number"] { width: 100px; }
+  .dim-group { display: flex; align-items: center; gap: 0.4rem; }
+  .dim-group span { color: var(--muted); font-size: 0.85rem; }
+
+  .dropzone {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 3rem 1.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    background: var(--card);
+  }
+  .dropzone.dragover {
+    border-color: var(--accent);
+    background: var(--accent-soft);
+  }
+  .dropzone p { margin: 0.25rem 0; }
+  .dropzone .hint { color: var(--muted); font-size: 0.85rem; }
+
+  #fileInput { display: none; }
+
+  .file-list { margin-top: 1.5rem; }
+  .file-item {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.85rem 1rem;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.9rem;
+  }
+  .file-item .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .file-item .size { color: var(--muted); font-size: 0.85rem; }
+  .file-item .status { color: var(--muted); font-size: 0.85rem; }
+  .file-item .status.done { color: var(--success); }
+  .file-item .status.error { color: var(--error); }
+  .file-item button {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.3rem 0.7rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+  .file-item button:hover { border-color: var(--accent); color: var(--accent); }
+
+  .actions { display: flex; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap; }
+  .btn {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 0.7rem 1.2rem;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  .btn:hover { background: var(--accent-hover); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn.secondary {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn.secondary:hover { border-color: var(--accent); color: var(--accent); background: transparent; }
+</style>
+</head>
+<body>
+<button id="themeToggle" class="theme-toggle" aria-label="Toggle theme"></button>
+<div class="container">
+  <a href="/tools/" class="back">← tools</a>
+  <h1>Image Converter</h1>
+  <p class="subtitle">Convert images between JPG, PNG, WebP, and HEIC. Files stay in your browser.</p>
+
+  <div class="controls">
+    <div class="control-row">
+      <label for="format">Output:</label>
+      <select id="format">
+        <option value="image/jpeg">JPG</option>
+        <option value="image/png">PNG</option>
+        <option value="image/webp" selected>WebP</option>
+      </select>
+      <label for="quality">Quality:</label>
+      <select id="quality">
+        <option value="1.0">100%</option>
+        <option value="0.92" selected>92%</option>
+        <option value="0.8">80%</option>
+        <option value="0.6">60%</option>
+      </select>
+    </div>
+    <div class="control-row">
+      <label>Max size:</label>
+      <div class="dim-group">
+        <input type="number" id="maxWidth" placeholder="width" min="1">
+        <span>×</span>
+        <input type="number" id="maxHeight" placeholder="height" min="1">
+        <span>px (optional)</span>
+      </div>
+    </div>
+  </div>
+
+  <div class="dropzone" id="dropzone">
+    <p><strong>Drop images here</strong> or click to choose</p>
+    <p class="hint">JPG, PNG, WebP, GIF, BMP, HEIC</p>
+    <input type="file" id="fileInput" accept="image/*,.heic,.heif" multiple>
+  </div>
+
+  <div class="file-list" id="fileList"></div>
+
+  <div class="actions" id="actions" style="display: none;">
+    <button class="btn" id="convertBtn">Convert all</button>
+    <button class="btn secondary" id="downloadAllBtn" style="display: none;">Download as ZIP</button>
+    <button class="btn secondary" id="clearBtn">Clear</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/heic2any@0.0.4/dist/heic2any.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script>
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+const fileList = document.getElementById('fileList');
+const actions = document.getElementById('actions');
+const convertBtn = document.getElementById('convertBtn');
+const downloadAllBtn = document.getElementById('downloadAllBtn');
+const clearBtn = document.getElementById('clearBtn');
+const formatSelect = document.getElementById('format');
+const qualitySelect = document.getElementById('quality');
+const maxWidthInput = document.getElementById('maxWidth');
+const maxHeightInput = document.getElementById('maxHeight');
+
+let files = [];
+
+function isHeic(file) {
+  return /\.(heic|heif)$/i.test(file.name) || file.type === 'image/heic' || file.type === 'image/heif';
+}
+
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+dropzone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropzone.classList.remove('dragover');
+  addFiles(Array.from(e.dataTransfer.files));
+});
+fileInput.addEventListener('change', (e) => addFiles(Array.from(e.target.files)));
+
+function addFiles(newFiles) {
+  const accepted = newFiles.filter(f => f.type.startsWith('image/') || isHeic(f));
+  files = files.concat(accepted.map(f => ({ file: f, status: 'pending', result: null })));
+  render();
+}
+
+function render() {
+  fileList.innerHTML = '';
+  files.forEach((item, i) => {
+    const div = document.createElement('div');
+    div.className = 'file-item';
+    const statusClass = item.status === 'done' ? 'done' : (item.status === 'error' ? 'error' : '');
+    div.innerHTML = `
+      <span class="name">${item.file.name}</span>
+      <span class="size">${formatSize(item.file.size)}</span>
+      <span class="status ${statusClass}">${statusText(item)}</span>
+      ${item.result ? `<button data-i="${i}" class="download">Download</button>` : ''}
+    `;
+    fileList.appendChild(div);
+  });
+  fileList.querySelectorAll('.download').forEach(btn => {
+    btn.addEventListener('click', () => downloadFile(parseInt(btn.dataset.i)));
+  });
+  actions.style.display = files.length ? 'flex' : 'none';
+  const doneCount = files.filter(f => f.status === 'done').length;
+  downloadAllBtn.style.display = doneCount > 1 ? 'inline-block' : 'none';
+}
+
+function statusText(item) {
+  if (item.status === 'pending') return 'ready';
+  if (item.status === 'converting') return 'converting...';
+  if (item.status === 'done') return `→ ${formatSize(item.result.size)}`;
+  if (item.status === 'error') return item.errorMessage || 'error';
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1024 / 1024).toFixed(2) + ' MB';
+}
+
+convertBtn.addEventListener('click', async () => {
+  convertBtn.disabled = true;
+  for (let i = 0; i < files.length; i++) {
+    if (files[i].status === 'done') continue;
+    files[i].status = 'converting';
+    render();
+    try {
+      const blob = await convertImage(files[i].file, formatSelect.value, parseFloat(qualitySelect.value));
+      files[i].result = blob;
+      files[i].status = 'done';
+    } catch (e) {
+      files[i].status = 'error';
+      files[i].errorMessage = e.message || 'failed';
+      console.error(e);
+    }
+    render();
+  }
+  convertBtn.disabled = false;
+});
+
+clearBtn.addEventListener('click', () => {
+  files = [];
+  fileInput.value = '';
+  render();
+});
+
+downloadAllBtn.addEventListener('click', async () => {
+  downloadAllBtn.disabled = true;
+  downloadAllBtn.textContent = 'Zipping...';
+  try {
+    const zip = new JSZip();
+    const ext = extForMime(formatSelect.value);
+    files.forEach(item => {
+      if (item.status !== 'done') return;
+      const baseName = item.file.name.replace(/\.[^.]+$/, '');
+      zip.file(`${baseName}.${ext}`, item.result);
+    });
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `converted-${Date.now()}.zip`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } finally {
+    downloadAllBtn.disabled = false;
+    downloadAllBtn.textContent = 'Download as ZIP';
+  }
+});
+
+async function convertImage(file, mimeType, quality) {
+  let sourceBlob = file;
+
+  if (isHeic(file)) {
+    const converted = await heic2any({ blob: file, toType: 'image/jpeg', quality: 0.95 });
+    sourceBlob = Array.isArray(converted) ? converted[0] : converted;
+  }
+
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      let { naturalWidth: w, naturalHeight: h } = img;
+      const maxW = parseInt(maxWidthInput.value);
+      const maxH = parseInt(maxHeightInput.value);
+      const scaleW = maxW && w > maxW ? maxW / w : 1;
+      const scaleH = maxH && h > maxH ? maxH / h : 1;
+      const scale = Math.min(scaleW, scaleH);
+      if (scale < 1) {
+        w = Math.round(w * scale);
+        h = Math.round(h * scale);
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+      if (mimeType === 'image/jpeg') {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, w, h);
+      }
+      ctx.drawImage(img, 0, 0, w, h);
+      canvas.toBlob(blob => blob ? resolve(blob) : reject(new Error('encoding failed')), mimeType, quality);
+    };
+    img.onerror = () => reject(new Error('cannot read image'));
+    img.src = URL.createObjectURL(sourceBlob);
+  });
+}
+
+function extForMime(mime) {
+  return mime.split('/')[1].replace('jpeg', 'jpg');
+}
+
+function downloadFile(i) {
+  const item = files[i];
+  const ext = extForMime(formatSelect.value);
+  const baseName = item.file.name.replace(/\.[^.]+$/, '');
+  const url = URL.createObjectURL(item.result);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${baseName}.${ext}`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+const SUN = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>';
+const MOON = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+const themeToggle = document.getElementById('themeToggle');
+function syncIcon() {
+  themeToggle.innerHTML = document.documentElement.getAttribute('data-theme') === 'dark' ? SUN : MOON;
+}
+syncIcon();
+themeToggle.addEventListener('click', () => {
+  const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('tools-theme', next);
+  syncIcon();
+});
+</script>
+</body>
+</html>

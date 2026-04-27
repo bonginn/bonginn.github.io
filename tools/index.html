@@ -1,0 +1,286 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Tools · bonginn</title>
+<meta name="description" content="Small browser-based utilities. All processing is done locally — your files never leave your device.">
+<script>
+(function() {
+  const stored = localStorage.getItem('tools-theme');
+  const theme = stored || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  document.documentElement.setAttribute('data-theme', theme);
+})();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #fafafa;
+    --bg-2: #f0f0f0;
+    --card: #ffffff;
+    --text: #0a0a0a;
+    --muted: #666;
+    --border: #e5e5e5;
+    --accent: #2563eb;
+    --accent-soft: rgba(37, 99, 235, 0.08);
+    --shadow: 0 1px 3px rgba(0,0,0,0.04), 0 8px 24px rgba(0,0,0,0.04);
+    --shadow-hover: 0 1px 3px rgba(0,0,0,0.06), 0 16px 40px rgba(0,0,0,0.08);
+  }
+  [data-theme="dark"] {
+    --bg: #0a0a0a;
+    --bg-2: #111;
+    --card: #141414;
+    --text: #f5f5f5;
+    --muted: #888;
+    --border: #222;
+    --accent: #60a5fa;
+    --accent-soft: rgba(96, 165, 250, 0.1);
+    --shadow: 0 1px 3px rgba(0,0,0,0.3), 0 8px 24px rgba(0,0,0,0.2);
+    --shadow-hover: 0 1px 3px rgba(0,0,0,0.4), 0 16px 40px rgba(0,0,0,0.4);
+  }
+  .theme-toggle {
+    position: fixed;
+    top: 1.25rem;
+    right: 1.25rem;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    transition: border-color 0.2s, color 0.2s, transform 0.2s;
+  }
+  .theme-toggle:hover { border-color: var(--accent); color: var(--accent); transform: rotate(15deg); }
+  * { box-sizing: border-box; }
+  html { scroll-behavior: smooth; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Inter', 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+    -webkit-font-smoothing: antialiased;
+    background-image:
+      radial-gradient(circle at 15% 0%, var(--accent-soft) 0%, transparent 40%),
+      radial-gradient(circle at 85% 30%, var(--accent-soft) 0%, transparent 40%);
+    background-attachment: fixed;
+  }
+  .container {
+    max-width: 880px;
+    margin: 0 auto;
+    padding: 5rem 1.5rem 4rem;
+  }
+  .back {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+    color: var(--muted);
+    text-decoration: none;
+    margin-bottom: 3rem;
+    font-size: 0.9rem;
+    transition: color 0.2s;
+  }
+  .back:hover { color: var(--accent); }
+  .back svg { width: 14px; height: 14px; }
+
+  header {
+    margin-bottom: 4rem;
+    max-width: 600px;
+  }
+  .eyebrow {
+    display: inline-block;
+    font-size: 0.78rem;
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--accent-soft);
+    padding: 0.3rem 0.7rem;
+    border-radius: 999px;
+    letter-spacing: 0.04em;
+    margin-bottom: 1.25rem;
+  }
+  h1 {
+    font-family: 'EB Garamond', Georgia, serif;
+    font-size: clamp(2.5rem, 5.5vw, 3.4rem);
+    font-weight: 500;
+    letter-spacing: -0.01em;
+    margin: 0 0 1rem;
+    line-height: 1.1;
+  }
+  .subtitle {
+    color: var(--muted);
+    margin: 0;
+    font-size: 1.05rem;
+    max-width: 520px;
+  }
+
+  .grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+    gap: 1.25rem;
+  }
+  .card {
+    position: relative;
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 16px;
+    padding: 1.75rem;
+    text-decoration: none;
+    color: inherit;
+    transition: transform 0.2s ease, box-shadow 0.25s ease, border-color 0.2s ease;
+    box-shadow: var(--shadow);
+    overflow: hidden;
+  }
+  .card::before {
+    content: '';
+    position: absolute;
+    top: 0; left: 0; right: 0;
+    height: 3px;
+    background: var(--accent);
+    transform: scaleX(0);
+    transform-origin: left;
+    transition: transform 0.3s ease;
+  }
+  .card:hover {
+    transform: translateY(-3px);
+    box-shadow: var(--shadow-hover);
+    border-color: transparent;
+  }
+  .card:hover::before { transform: scaleX(1); }
+  .card-icon {
+    width: 44px;
+    height: 44px;
+    border-radius: 10px;
+    background: var(--accent-soft);
+    color: var(--accent);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 1.25rem;
+  }
+  .card-icon svg { width: 22px; height: 22px; }
+  .card h2 {
+    margin: 0 0 0.4rem;
+    font-size: 1.15rem;
+    font-weight: 600;
+    letter-spacing: -0.01em;
+  }
+  .card p {
+    margin: 0 0 1rem;
+    color: var(--muted);
+    font-size: 0.92rem;
+  }
+  .card-arrow {
+    color: var(--muted);
+    font-size: 0.85rem;
+    display: inline-flex;
+    align-items: center;
+    gap: 0.3rem;
+    transition: gap 0.2s, color 0.2s;
+  }
+  .card:hover .card-arrow {
+    color: var(--accent);
+    gap: 0.5rem;
+  }
+
+  footer {
+    margin-top: 5rem;
+    padding-top: 2rem;
+    border-top: 1px solid var(--border);
+    color: var(--muted);
+    font-size: 0.85rem;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    gap: 0.5rem;
+  }
+  .footer-badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.4rem;
+  }
+  .pulse {
+    width: 6px; height: 6px;
+    background: #22c55e;
+    border-radius: 50%;
+    box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5);
+    animation: pulse 2s infinite;
+  }
+  @keyframes pulse {
+    0% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.5); }
+    70% { box-shadow: 0 0 0 8px rgba(34, 197, 94, 0); }
+    100% { box-shadow: 0 0 0 0 rgba(34, 197, 94, 0); }
+  }
+</style>
+</head>
+<body>
+<button id="themeToggle" class="theme-toggle" aria-label="Toggle theme"></button>
+<div class="container">
+  <a href="/" class="back">
+    <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+    back to blog
+  </a>
+
+  <header>
+    <span class="eyebrow">TOOLS</span>
+    <h1>Small tools.</h1>
+    <p class="subtitle">Built for myself, runs locally. No uploads, no tracking.</p>
+  </header>
+
+  <div class="grid">
+    <a href="/tools/converter/" class="card">
+      <div class="card-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8"/><path d="M3 3v5h5"/><path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16"/><path d="M16 16h5v5"/></svg>
+      </div>
+      <h2>Image Converter</h2>
+      <p>Convert images between JPG, PNG, WebP, and HEIC. Files stay in your browser.</p>
+      <span class="card-arrow">Open tool →</span>
+    </a>
+    <a href="/tools/compressor/" class="card">
+      <div class="card-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 8V5a2 2 0 0 0-2-2h-3"/><path d="M3 8V5a2 2 0 0 1 2-2h3"/><path d="M3 16v3a2 2 0 0 0 2 2h3"/><path d="M21 16v3a2 2 0 0 1-2 2h-3"/><path d="M9 12h6"/></svg>
+      </div>
+      <h2>Image Compressor</h2>
+      <p>Reduce image file size by adjusting quality. Files stay in your browser.</p>
+      <span class="card-arrow">Open tool →</span>
+    </a>
+    <a href="/tools/token-counter/" class="card">
+      <div class="card-icon">
+        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><rect x="3" y="3" width="18" height="18" rx="2"/><path d="M7 8h10M7 12h10M7 16h6"/></svg>
+      </div>
+      <h2>LLM Token Counter</h2>
+      <p>Accurate token counts for GPT and Llama models, with token-by-token breakdown.</p>
+      <span class="card-arrow">Open tool →</span>
+    </a>
+  </div>
+
+  <footer>
+    <span>Built with vanilla JS · No tracking, no uploads</span>
+    <span class="footer-badge"><span class="pulse"></span> All processing is local</span>
+  </footer>
+</div>
+<script>
+const SUN = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>';
+const MOON = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+const themeToggle = document.getElementById('themeToggle');
+function syncIcon() {
+  themeToggle.innerHTML = document.documentElement.getAttribute('data-theme') === 'dark' ? SUN : MOON;
+}
+syncIcon();
+themeToggle.addEventListener('click', () => {
+  const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('tools-theme', next);
+  syncIcon();
+});
+</script>
+</body>
+</html>

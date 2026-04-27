@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Image Compressor · bonginn</title>
+<script>
+(function() {
+  const stored = localStorage.getItem('tools-theme');
+  const theme = stored || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  document.documentElement.setAttribute('data-theme', theme);
+})();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #fafafa;
+    --card: #ffffff;
+    --text: #1a1a1a;
+    --muted: #666;
+    --border: #e5e5e5;
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --success: #16a34a;
+  }
+  [data-theme="dark"] {
+    --bg: #0f0f0f;
+    --card: #1a1a1a;
+    --text: #e5e5e5;
+    --muted: #999;
+    --border: #2a2a2a;
+    --accent: #60a5fa;
+    --accent-hover: #93c5fd;
+    --success: #4ade80;
+  }
+  .theme-toggle {
+    position: fixed;
+    top: 1.25rem;
+    right: 1.25rem;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    transition: border-color 0.2s, color 0.2s, transform 0.2s;
+  }
+  .theme-toggle:hover { border-color: var(--accent); color: var(--accent); transform: rotate(15deg); }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+  .container {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 3rem 1.5rem;
+  }
+  .back {
+    display: inline-block;
+    color: var(--muted);
+    text-decoration: none;
+    margin-bottom: 1.5rem;
+    font-size: 0.9rem;
+  }
+  .back:hover { color: var(--accent); }
+  h1 {
+    font-family: 'EB Garamond', Georgia, serif;
+    font-size: 2.6rem;
+    font-weight: 500;
+    margin: 0 0 0.5rem;
+    letter-spacing: -0.01em;
+  }
+  .subtitle { color: var(--muted); margin: 0 0 2rem; }
+
+  .controls {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+  }
+  .control-row {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    flex-wrap: wrap;
+    margin-bottom: 0.75rem;
+  }
+  .control-row:last-child { margin-bottom: 0; }
+  .control-row label {
+    font-size: 0.9rem;
+    color: var(--muted);
+    min-width: 90px;
+  }
+  input[type="range"] {
+    flex: 1;
+    min-width: 150px;
+  }
+  .value-display {
+    font-variant-numeric: tabular-nums;
+    color: var(--accent);
+    font-weight: 500;
+    min-width: 45px;
+    text-align: right;
+  }
+  input[type="number"] {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.9rem;
+    width: 110px;
+  }
+  select {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.9rem;
+  }
+
+  .dropzone {
+    border: 2px dashed var(--border);
+    border-radius: 12px;
+    padding: 3rem 1.5rem;
+    text-align: center;
+    cursor: pointer;
+    transition: border-color 0.15s, background 0.15s;
+    background: var(--card);
+  }
+  .dropzone.dragover {
+    border-color: var(--accent);
+    background: rgba(37, 99, 235, 0.05);
+  }
+  .dropzone p { margin: 0.25rem 0; }
+  .dropzone .hint { color: var(--muted); font-size: 0.85rem; }
+
+  #fileInput { display: none; }
+
+  .file-list { margin-top: 1.5rem; }
+  .file-item {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.85rem 1rem;
+    margin-bottom: 0.5rem;
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    font-size: 0.9rem;
+  }
+  .file-item .name { flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .size-info { color: var(--muted); font-size: 0.85rem; font-variant-numeric: tabular-nums; }
+  .savings { color: var(--success); font-size: 0.85rem; font-weight: 500; }
+  .file-item button {
+    background: none;
+    border: 1px solid var(--border);
+    color: var(--text);
+    padding: 0.3rem 0.7rem;
+    border-radius: 6px;
+    cursor: pointer;
+    font-size: 0.85rem;
+  }
+  .file-item button:hover { border-color: var(--accent); color: var(--accent); }
+
+  .actions { display: flex; gap: 0.5rem; margin-top: 1rem; }
+  .btn {
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 0.7rem 1.2rem;
+    border-radius: 8px;
+    font-size: 0.95rem;
+    cursor: pointer;
+    font-weight: 500;
+  }
+  .btn:hover { background: var(--accent-hover); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; }
+  .btn.secondary {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+</style>
+</head>
+<body>
+<button id="themeToggle" class="theme-toggle" aria-label="Toggle theme"></button>
+<div class="container">
+  <a href="/tools/" class="back">← tools</a>
+  <h1>Image Compressor</h1>
+  <p class="subtitle">Reduce image file size by adjusting quality. Files stay in your browser.</p>
+
+  <div class="controls">
+    <div class="control-row">
+      <label for="quality">Quality:</label>
+      <input type="range" id="quality" min="10" max="100" value="75">
+      <span class="value-display" id="qualityValue">75%</span>
+    </div>
+    <div class="control-row">
+      <label for="format">Format:</label>
+      <select id="format">
+        <option value="auto" selected>Keep original</option>
+        <option value="image/jpeg">JPG</option>
+        <option value="image/webp">WebP</option>
+      </select>
+      <label for="maxWidth">Max width:</label>
+      <input type="number" id="maxWidth" placeholder="e.g. 1920" min="100">
+    </div>
+  </div>
+
+  <div class="dropzone" id="dropzone">
+    <p><strong>Drop images here</strong> or click to choose</p>
+    <p class="hint">Supports JPG, PNG, WebP</p>
+    <input type="file" id="fileInput" accept="image/*" multiple>
+  </div>
+
+  <div class="file-list" id="fileList"></div>
+
+  <div class="actions" id="actions" style="display: none;">
+    <button class="btn" id="compressBtn">Compress all</button>
+    <button class="btn secondary" id="downloadAllBtn" style="display: none;">Download as ZIP</button>
+    <button class="btn secondary" id="clearBtn">Clear</button>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/jszip@3.10.1/dist/jszip.min.js"></script>
+<script>
+const dropzone = document.getElementById('dropzone');
+const fileInput = document.getElementById('fileInput');
+const fileList = document.getElementById('fileList');
+const actions = document.getElementById('actions');
+const compressBtn = document.getElementById('compressBtn');
+const downloadAllBtn = document.getElementById('downloadAllBtn');
+const clearBtn = document.getElementById('clearBtn');
+const qualitySlider = document.getElementById('quality');
+const qualityValue = document.getElementById('qualityValue');
+const formatSelect = document.getElementById('format');
+const maxWidthInput = document.getElementById('maxWidth');
+
+let files = [];
+
+qualitySlider.addEventListener('input', () => {
+  qualityValue.textContent = qualitySlider.value + '%';
+});
+
+dropzone.addEventListener('click', () => fileInput.click());
+dropzone.addEventListener('dragover', (e) => { e.preventDefault(); dropzone.classList.add('dragover'); });
+dropzone.addEventListener('dragleave', () => dropzone.classList.remove('dragover'));
+dropzone.addEventListener('drop', (e) => {
+  e.preventDefault();
+  dropzone.classList.remove('dragover');
+  addFiles(Array.from(e.dataTransfer.files));
+});
+fileInput.addEventListener('change', (e) => addFiles(Array.from(e.target.files)));
+
+function addFiles(newFiles) {
+  const imageFiles = newFiles.filter(f => f.type.startsWith('image/'));
+  files = files.concat(imageFiles.map(f => ({ file: f, status: 'pending', result: null })));
+  render();
+}
+
+function render() {
+  fileList.innerHTML = '';
+  files.forEach((item, i) => {
+    const div = document.createElement('div');
+    div.className = 'file-item';
+    let info = '';
+    if (item.status === 'pending') {
+      info = `<span class="size-info">${formatSize(item.file.size)}</span>`;
+    } else if (item.status === 'compressing') {
+      info = `<span class="size-info">compressing...</span>`;
+    } else if (item.status === 'done') {
+      const savings = ((1 - item.result.size / item.file.size) * 100).toFixed(0);
+      info = `
+        <span class="size-info">${formatSize(item.file.size)} → ${formatSize(item.result.size)}</span>
+        <span class="savings">−${savings}%</span>
+      `;
+    } else if (item.status === 'error') {
+      info = `<span class="size-info">error</span>`;
+    }
+    div.innerHTML = `
+      <span class="name">${item.file.name}</span>
+      ${info}
+      ${item.result ? `<button data-i="${i}" class="download">Download</button>` : ''}
+    `;
+    fileList.appendChild(div);
+  });
+  fileList.querySelectorAll('.download').forEach(btn => {
+    btn.addEventListener('click', () => downloadFile(parseInt(btn.dataset.i)));
+  });
+  actions.style.display = files.length ? 'flex' : 'none';
+  const doneCount = files.filter(f => f.status === 'done').length;
+  downloadAllBtn.style.display = doneCount > 1 ? 'inline-block' : 'none';
+}
+
+function formatSize(bytes) {
+  if (bytes < 1024) return bytes + ' B';
+  if (bytes < 1024 * 1024) return (bytes / 1024).toFixed(1) + ' KB';
+  return (bytes / 1024 / 1024).toFixed(2) + ' MB';
+}
+
+compressBtn.addEventListener('click', async () => {
+  compressBtn.disabled = true;
+  for (let i = 0; i < files.length; i++) {
+    if (files[i].status === 'done') continue;
+    files[i].status = 'compressing';
+    render();
+    try {
+      const blob = await compressImage(files[i].file);
+      files[i].result = blob;
+      files[i].status = 'done';
+    } catch (e) {
+      files[i].status = 'error';
+      console.error(e);
+    }
+    render();
+  }
+  compressBtn.disabled = false;
+});
+
+clearBtn.addEventListener('click', () => {
+  files = [];
+  fileInput.value = '';
+  render();
+});
+
+downloadAllBtn.addEventListener('click', async () => {
+  downloadAllBtn.disabled = true;
+  downloadAllBtn.textContent = 'Zipping...';
+  try {
+    const zip = new JSZip();
+    files.forEach(item => {
+      if (item.status !== 'done') return;
+      const ext = item.result.type.split('/')[1].replace('jpeg', 'jpg');
+      const baseName = item.file.name.replace(/\.[^.]+$/, '');
+      zip.file(`${baseName}-compressed.${ext}`, item.result);
+    });
+    const blob = await zip.generateAsync({ type: 'blob' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `compressed-${Date.now()}.zip`;
+    a.click();
+    URL.revokeObjectURL(url);
+  } finally {
+    downloadAllBtn.disabled = false;
+    downloadAllBtn.textContent = 'Download as ZIP';
+  }
+});
+
+function compressImage(file) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      let { naturalWidth: w, naturalHeight: h } = img;
+      const maxW = parseInt(maxWidthInput.value);
+      if (maxW && w > maxW) {
+        h = Math.round(h * (maxW / w));
+        w = maxW;
+      }
+      const canvas = document.createElement('canvas');
+      canvas.width = w;
+      canvas.height = h;
+      const ctx = canvas.getContext('2d');
+
+      let outputType = formatSelect.value;
+      if (outputType === 'auto') {
+        outputType = file.type === 'image/png' ? 'image/png' : 'image/jpeg';
+      }
+      if (outputType === 'image/jpeg') {
+        ctx.fillStyle = '#ffffff';
+        ctx.fillRect(0, 0, w, h);
+      }
+      ctx.drawImage(img, 0, 0, w, h);
+
+      const quality = parseInt(qualitySlider.value) / 100;
+      canvas.toBlob(blob => blob ? resolve(blob) : reject('toBlob failed'), outputType, quality);
+    };
+    img.onerror = reject;
+    img.src = URL.createObjectURL(file);
+  });
+}
+
+function downloadFile(i) {
+  const item = files[i];
+  const mimeType = item.result.type;
+  const ext = mimeType.split('/')[1].replace('jpeg', 'jpg');
+  const baseName = item.file.name.replace(/\.[^.]+$/, '');
+  const url = URL.createObjectURL(item.result);
+  const a = document.createElement('a');
+  a.href = url;
+  a.download = `${baseName}-compressed.${ext}`;
+  a.click();
+  URL.revokeObjectURL(url);
+}
+
+const SUN = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>';
+const MOON = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+const themeToggle = document.getElementById('themeToggle');
+function syncIcon() {
+  themeToggle.innerHTML = document.documentElement.getAttribute('data-theme') === 'dark' ? SUN : MOON;
+}
+syncIcon();
+themeToggle.addEventListener('click', () => {
+  const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('tools-theme', next);
+  syncIcon();
+});
+</script>
+</body>
+</html>
