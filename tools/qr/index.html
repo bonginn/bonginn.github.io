@@ -1,0 +1,376 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>QR Code Generator · bonginn</title>
+<script>
+(function() {
+  const stored = localStorage.getItem('tools-theme');
+  const theme = stored || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  document.documentElement.setAttribute('data-theme', theme);
+})();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #fafafa;
+    --card: #ffffff;
+    --text: #1a1a1a;
+    --muted: #666;
+    --border: #e5e5e5;
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --success: #16a34a;
+  }
+  [data-theme="dark"] {
+    --bg: #0f0f0f;
+    --card: #1a1a1a;
+    --text: #e5e5e5;
+    --muted: #999;
+    --border: #2a2a2a;
+    --accent: #60a5fa;
+    --accent-hover: #93c5fd;
+    --success: #4ade80;
+  }
+  .theme-toggle {
+    position: fixed;
+    top: 1.25rem;
+    right: 1.25rem;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    transition: border-color 0.2s, color 0.2s, transform 0.2s;
+  }
+  .theme-toggle:hover { border-color: var(--accent); color: var(--accent); transform: rotate(15deg); }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+  .container {
+    max-width: 720px;
+    margin: 0 auto;
+    padding: 3rem 1.5rem;
+  }
+  .back {
+    display: inline-block;
+    color: var(--muted);
+    text-decoration: none;
+    margin-bottom: 1.5rem;
+    font-size: 0.9rem;
+  }
+  .back:hover { color: var(--accent); }
+  h1 {
+    font-family: 'EB Garamond', Georgia, serif;
+    font-size: 2.6rem;
+    font-weight: 500;
+    margin: 0 0 0.5rem;
+    letter-spacing: -0.01em;
+  }
+  .subtitle { color: var(--muted); margin: 0 0 2rem; }
+
+  .main-layout {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 1.25rem;
+    align-items: start;
+  }
+  @media (max-width: 560px) {
+    .main-layout { grid-template-columns: 1fr; }
+  }
+
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+  }
+
+  textarea {
+    width: 100%;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.75rem;
+    font-size: 0.95rem;
+    font-family: inherit;
+    resize: vertical;
+    min-height: 120px;
+    line-height: 1.5;
+    transition: border-color 0.15s;
+  }
+  textarea:focus { outline: none; border-color: var(--accent); }
+  textarea::placeholder { color: var(--muted); }
+
+  .control-row {
+    display: flex;
+    align-items: center;
+    justify-content: flex-end;
+    gap: 0.75rem;
+    margin-top: 0.75rem;
+  }
+  .control-row label {
+    font-size: 0.88rem;
+    color: var(--muted);
+    margin-right: auto;
+  }
+  select, input[type="color"] {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.35rem 0.6rem;
+    font-size: 0.88rem;
+    cursor: pointer;
+  }
+  input[type="color"] {
+    padding: 0.2rem 0.3rem;
+    width: 42px;
+    height: 30px;
+    cursor: pointer;
+  }
+  input[type="range"] { flex: 1; min-width: 100px; cursor: pointer; }
+  .value-display {
+    font-variant-numeric: tabular-nums;
+    color: var(--accent);
+    font-weight: 500;
+    min-width: 38px;
+    font-size: 0.88rem;
+    text-align: right;
+  }
+
+  .preview-panel {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 1rem;
+  }
+  .qr-wrap {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 8px;
+    background: #fff;
+    padding: 0.5rem;
+  }
+  .qr-wrap canvas, .qr-wrap img {
+    display: block;
+    max-width: 100%;
+  }
+  .empty-state {
+    color: var(--muted);
+    font-size: 0.9rem;
+    text-align: center;
+  }
+
+  .actions { display: flex; gap: 0.5rem; width: 100%; }
+  .btn {
+    flex: 1;
+    background: var(--accent);
+    color: white;
+    border: none;
+    padding: 0.65rem 1rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    cursor: pointer;
+    font-weight: 500;
+    transition: background 0.15s;
+  }
+  .btn:hover { background: var(--accent-hover); }
+  .btn:disabled { opacity: 0.4; cursor: not-allowed; }
+  .btn.secondary {
+    background: transparent;
+    color: var(--text);
+    border: 1px solid var(--border);
+  }
+  .btn.secondary:hover { border-color: var(--accent); color: var(--accent); background: transparent; }
+
+  .copied {
+    color: var(--success);
+    font-size: 0.82rem;
+    text-align: center;
+    height: 1rem;
+    transition: opacity 0.3s;
+  }
+</style>
+</head>
+<body>
+<button id="themeToggle" class="theme-toggle" aria-label="Toggle theme"></button>
+<div class="container">
+  <a href="/tools/" class="back">← tools</a>
+  <h1>QR Code Generator</h1>
+  <p class="subtitle">Type anything — URL, text, contact info. Generated locally, no server involved.</p>
+
+  <div class="main-layout">
+    <div class="panel">
+      <textarea id="input" placeholder="https://bonginn.me" autocomplete="off" spellcheck="false"></textarea>
+
+      <div class="control-row">
+        <label for="ecLevel">Error correction:</label>
+        <select id="ecLevel">
+          <option value="L">Low (7%)</option>
+          <option value="M" selected>Medium (15%)</option>
+          <option value="Q">Quartile (25%)</option>
+          <option value="H">High (30%)</option>
+        </select>
+      </div>
+
+<div class="control-row">
+        <label>Colors:</label>
+        <input type="color" id="colorDark" value="#000000" title="Foreground">
+        <input type="color" id="colorLight" value="#ffffff" title="Background">
+        <button class="btn secondary" id="resetColors" style="flex:none;padding:0.35rem 0.7rem;font-size:0.82rem;">Reset</button>
+      </div>
+    </div>
+
+    <div class="panel preview-panel">
+      <div class="qr-wrap" id="qrWrap">
+        <p class="empty-state">Enter text to generate</p>
+      </div>
+      <div class="actions">
+        <button class="btn" id="downloadBtn" disabled>Download PNG</button>
+        <button class="btn secondary" id="copyBtn" disabled>Copy</button>
+      </div>
+      <div class="copied" id="copiedMsg" style="opacity:0;"></div>
+    </div>
+  </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/qrcode-generator@1.4.4/qrcode.js"></script>
+<script>
+const inputEl = document.getElementById('input');
+const ecLevel = document.getElementById('ecLevel');
+const colorDark = document.getElementById('colorDark');
+const colorLight = document.getElementById('colorLight');
+const resetColors = document.getElementById('resetColors');
+const qrWrap = document.getElementById('qrWrap');
+const downloadBtn = document.getElementById('downloadBtn');
+const copyBtn = document.getElementById('copyBtn');
+const copiedMsg = document.getElementById('copiedMsg');
+
+let debounceTimer = null;
+
+ecLevel.addEventListener('change', scheduleGenerate);
+colorDark.addEventListener('input', scheduleGenerate);
+colorLight.addEventListener('input', scheduleGenerate);
+inputEl.addEventListener('input', scheduleGenerate);
+resetColors.addEventListener('click', () => { colorDark.value = '#000000'; colorLight.value = '#ffffff'; scheduleGenerate(); });
+
+function scheduleGenerate() {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(generate, 120);
+}
+
+function getCanvas() {
+  return qrWrap.querySelector('canvas');
+}
+
+function generate() {
+  const text = inputEl.value;
+  if (!text) {
+    qrWrap.innerHTML = '<p class="empty-state">Enter text to generate</p>';
+    downloadBtn.disabled = true;
+    copyBtn.disabled = true;
+    return;
+  }
+  try {
+    const bytes = new TextEncoder().encode(text);
+    let byteString = '';
+    for (let i = 0; i < bytes.length; i++) byteString += String.fromCharCode(bytes[i]);
+
+    const qr = qrcode(0, ecLevel.value);
+    qr.addData(byteString, 'Byte');
+    qr.make();
+
+    const moduleCount = qr.getModuleCount();
+    const padding = 16;
+    const target = 320;
+    const cellSize = Math.max(1, Math.floor((target - padding * 2) / moduleCount));
+    const size = cellSize * moduleCount + padding * 2;
+
+    const canvas = document.createElement('canvas');
+    canvas.width = canvas.height = size;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = colorLight.value;
+    ctx.fillRect(0, 0, size, size);
+    ctx.fillStyle = colorDark.value;
+    for (let r = 0; r < moduleCount; r++) {
+      for (let c = 0; c < moduleCount; c++) {
+        if (qr.isDark(r, c)) {
+          ctx.fillRect(c * cellSize + padding, r * cellSize + padding, cellSize, cellSize);
+        }
+      }
+    }
+
+    qrWrap.innerHTML = '';
+    qrWrap.appendChild(canvas);
+    downloadBtn.disabled = false;
+    copyBtn.disabled = false;
+  } catch (e) {
+    console.error('QR generation error:', e);
+    qrWrap.innerHTML = `<p class="empty-state" style="color:#e53e3e;">${e.message || 'Invalid input'}</p>`;
+    downloadBtn.disabled = true;
+    copyBtn.disabled = true;
+  }
+}
+
+downloadBtn.addEventListener('click', () => {
+  const canvas = getCanvas();
+  if (!canvas) return;
+  const text = inputEl.value.trim();
+  const slug = text.replace(/[^a-zA-Z0-9]/g, '-').slice(0, 40) || 'qr';
+  const a = document.createElement('a');
+  a.href = canvas.toDataURL('image/png');
+  a.download = `qr-${slug}.png`;
+  a.click();
+});
+
+copyBtn.addEventListener('click', async () => {
+  const canvas = getCanvas();
+  if (!canvas) return;
+  try {
+    canvas.toBlob(async blob => {
+      await navigator.clipboard.write([new ClipboardItem({ 'image/png': blob })]);
+      copiedMsg.textContent = 'Copied to clipboard';
+      copiedMsg.style.opacity = '1';
+      setTimeout(() => { copiedMsg.style.opacity = '0'; }, 1800);
+    });
+  } catch {
+    copiedMsg.textContent = 'Copy not supported in this browser';
+    copiedMsg.style.opacity = '1';
+    setTimeout(() => { copiedMsg.style.opacity = '0'; }, 2000);
+  }
+});
+
+const SUN = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>';
+const MOON = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+const themeToggle = document.getElementById('themeToggle');
+function syncIcon() {
+  themeToggle.innerHTML = document.documentElement.getAttribute('data-theme') === 'dark' ? SUN : MOON;
+}
+syncIcon();
+themeToggle.addEventListener('click', () => {
+  const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('tools-theme', next);
+  syncIcon();
+});
+</script>
+</body>
+</html>
