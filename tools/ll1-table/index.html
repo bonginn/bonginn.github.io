@@ -1,0 +1,562 @@
+<!DOCTYPE html>
+<html lang="zh-Hant">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>LL(1) Parsing Table · bonginn</title>
+<script>
+(function() {
+  const stored = localStorage.getItem('tools-theme');
+  const theme = stored || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light');
+  document.documentElement.setAttribute('data-theme', theme);
+})();
+</script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=EB+Garamond:wght@400;500;600&display=swap" rel="stylesheet">
+<style>
+  :root {
+    --bg: #fafafa;
+    --card: #ffffff;
+    --text: #1a1a1a;
+    --muted: #666;
+    --border: #e5e5e5;
+    --accent: #2563eb;
+    --accent-hover: #1d4ed8;
+    --success: #16a34a;
+    --error: #dc2626;
+    --warn-bg: rgba(220, 38, 38, 0.08);
+    --code-bg: #f3f4f6;
+  }
+  [data-theme="dark"] {
+    --bg: #0f0f0f;
+    --card: #1a1a1a;
+    --text: #e5e5e5;
+    --muted: #999;
+    --border: #2a2a2a;
+    --accent: #60a5fa;
+    --accent-hover: #93c5fd;
+    --success: #4ade80;
+    --error: #f87171;
+    --warn-bg: rgba(248, 113, 113, 0.1);
+    --code-bg: #222;
+  }
+  .theme-toggle {
+    position: fixed;
+    top: 1.25rem;
+    right: 1.25rem;
+    width: 38px;
+    height: 38px;
+    border-radius: 50%;
+    background: var(--card);
+    border: 1px solid var(--border);
+    color: var(--text);
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+    transition: border-color 0.2s, color 0.2s, transform 0.2s;
+  }
+  .theme-toggle:hover { border-color: var(--accent); color: var(--accent); transform: rotate(15deg); }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    color: var(--text);
+    line-height: 1.6;
+    min-height: 100vh;
+  }
+  .container {
+    max-width: 960px;
+    margin: 0 auto;
+    padding: 3rem 1.5rem;
+  }
+  .back { display: inline-block; color: var(--muted); text-decoration: none; margin-bottom: 1.5rem; font-size: 0.9rem; }
+  .back:hover { color: var(--accent); }
+  h1 {
+    font-family: 'EB Garamond', Georgia, serif;
+    font-size: 2.6rem;
+    font-weight: 500;
+    margin: 0 0 0.5rem;
+    letter-spacing: -0.01em;
+  }
+  .subtitle { color: var(--muted); margin: 0 0 2rem; }
+
+  .panel {
+    background: var(--card);
+    border: 1px solid var(--border);
+    border-radius: 12px;
+    padding: 1.25rem;
+    margin-bottom: 1rem;
+  }
+  .panel h2 {
+    margin: 0 0 0.75rem;
+    font-size: 0.95rem;
+    font-weight: 600;
+    color: var(--muted);
+    text-transform: uppercase;
+    letter-spacing: 0.05em;
+  }
+
+  textarea {
+    width: 100%;
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 8px;
+    padding: 0.85rem;
+    font-size: 0.92rem;
+    font-family: 'SF Mono', Menlo, Consolas, monospace;
+    resize: vertical;
+    min-height: 180px;
+    line-height: 1.6;
+    transition: border-color 0.15s;
+  }
+  textarea:focus { outline: none; border-color: var(--accent); }
+
+  .syntax-hint {
+    color: var(--muted);
+    font-size: 0.82rem;
+    margin-top: 0.6rem;
+    line-height: 1.5;
+  }
+  .syntax-hint code {
+    background: var(--code-bg);
+    padding: 0.1rem 0.35rem;
+    border-radius: 4px;
+    font-size: 0.85rem;
+  }
+
+  .control-row {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    margin-top: 0.85rem;
+    flex-wrap: wrap;
+  }
+  .control-row label { font-size: 0.88rem; color: var(--muted); }
+  input[type="text"] {
+    background: var(--bg);
+    color: var(--text);
+    border: 1px solid var(--border);
+    border-radius: 6px;
+    padding: 0.4rem 0.6rem;
+    font-size: 0.88rem;
+    font-family: 'SF Mono', Menlo, Consolas, monospace;
+    min-width: 100px;
+  }
+
+  .examples {
+    display: flex;
+    gap: 0.5rem;
+    flex-wrap: wrap;
+    margin-top: 0.6rem;
+  }
+  .example-btn {
+    background: transparent;
+    border: 1px solid var(--border);
+    color: var(--muted);
+    padding: 0.3rem 0.7rem;
+    border-radius: 999px;
+    font-size: 0.8rem;
+    cursor: pointer;
+    transition: all 0.15s;
+  }
+  .example-btn:hover { border-color: var(--accent); color: var(--accent); }
+
+  .table-wrap { overflow-x: auto; }
+  table {
+    width: 100%;
+    border-collapse: collapse;
+    font-family: 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 0.88rem;
+  }
+  th, td {
+    text-align: left;
+    padding: 0.55rem 0.75rem;
+    border-bottom: 1px solid var(--border);
+    border-right: 1px solid var(--border);
+    vertical-align: top;
+  }
+  th:last-child, td:last-child { border-right: none; }
+  tr:last-child td { border-bottom: none; }
+  thead th {
+    color: var(--muted);
+    font-weight: 600;
+    font-size: 0.78rem;
+    text-transform: uppercase;
+    letter-spacing: 0.04em;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    background: var(--bg);
+    position: sticky;
+    top: 0;
+  }
+  td.nt {
+    font-weight: 600;
+    color: var(--accent);
+    background: var(--bg);
+    white-space: nowrap;
+  }
+  .term-col {
+    color: var(--text);
+    font-weight: 500;
+    text-transform: none;
+    letter-spacing: 0;
+    font-family: 'SF Mono', Menlo, Consolas, monospace;
+    font-size: 0.85rem;
+  }
+  .end-marker { color: var(--success); font-weight: 600; }
+  .epsilon { color: var(--muted); font-style: italic; }
+  .arrow { color: var(--muted); margin: 0 0.25rem; }
+  .conflict {
+    background: var(--warn-bg);
+  }
+  .conflict-marker {
+    display: inline-block;
+    background: var(--error);
+    color: white;
+    font-size: 0.7rem;
+    padding: 0.05rem 0.4rem;
+    border-radius: 4px;
+    margin-bottom: 0.3rem;
+    font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    font-weight: 600;
+    letter-spacing: 0.03em;
+  }
+  .prod-line { display: block; line-height: 1.55; }
+  .prod-line + .prod-line { margin-top: 0.2rem; }
+
+  .status {
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    margin-bottom: 1rem;
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+  }
+  .status.ok {
+    color: var(--success);
+    background: rgba(22, 163, 74, 0.08);
+    border: 1px solid rgba(22, 163, 74, 0.2);
+  }
+  .status.bad {
+    color: var(--error);
+    background: var(--warn-bg);
+    border: 1px solid rgba(220, 38, 38, 0.2);
+  }
+  .status .dot {
+    width: 8px; height: 8px; border-radius: 50%;
+  }
+  .status.ok .dot { background: var(--success); }
+  .status.bad .dot { background: var(--error); }
+
+  .error {
+    color: var(--error);
+    background: var(--warn-bg);
+    border: 1px solid rgba(220, 38, 38, 0.2);
+    padding: 0.75rem 1rem;
+    border-radius: 8px;
+    font-size: 0.88rem;
+    font-family: 'SF Mono', Menlo, Consolas, monospace;
+  }
+  .empty-state { color: var(--muted); text-align: center; padding: 2rem 1rem; font-size: 0.9rem; }
+
+  .ff-table td.set { font-size: 0.88rem; }
+</style>
+</head>
+<body>
+<button id="themeToggle" class="theme-toggle" aria-label="Toggle theme"></button>
+<div class="container">
+  <a href="/tools/" class="back">← tools</a>
+  <h1>LL(1) Parsing Table</h1>
+  <p class="subtitle">Build the LL(1) parsing table from a context-free grammar. Conflicts are highlighted.</p>
+
+  <div class="panel">
+    <h2>Grammar</h2>
+    <textarea id="input" spellcheck="false" autocomplete="off">E -> T E'
+E' -> + T E' | ε
+T -> F T'
+T' -> * F T' | ε
+F -> ( E ) | id</textarea>
+    <p class="syntax-hint">
+      Format: <code>LHS -> RHS1 | RHS2 | ...</code>. Tokens are space-separated. Use <code>ε</code> or leave RHS empty for epsilon.
+    </p>
+    <div class="examples">
+      <button class="example-btn" data-ex="arith">Arithmetic</button>
+      <button class="example-btn" data-ex="ifelse">If-else (conflict)</button>
+      <button class="example-btn" data-ex="leftrec">Left-recursive (conflict)</button>
+      <button class="example-btn" data-ex="list">List</button>
+    </div>
+    <div class="control-row">
+      <label for="startSymbol">Start symbol:</label>
+      <input type="text" id="startSymbol" placeholder="auto (first LHS)">
+    </div>
+  </div>
+
+  <div id="results"><div class="panel"><div class="empty-state">Enter a grammar above to compute the table</div></div></div>
+</div>
+
+<script>
+const inputEl = document.getElementById('input');
+const startEl = document.getElementById('startSymbol');
+const resultsEl = document.getElementById('results');
+
+const EPS = 'ε';
+const END = '$';
+
+const EXAMPLES = {
+  arith: `E -> T E'
+E' -> + T E' | ε
+T -> F T'
+T' -> * F T' | ε
+F -> ( E ) | id`,
+  ifelse: `S -> i E t S S' | a
+S' -> e S | ε
+E -> b`,
+  leftrec: `E -> E + T | T
+T -> T * F | F
+F -> ( E ) | id`,
+  list: `L -> E L'
+L' -> , E L' | ε
+E -> id`
+};
+
+document.querySelectorAll('.example-btn').forEach(btn => {
+  btn.addEventListener('click', () => {
+    inputEl.value = EXAMPLES[btn.dataset.ex];
+    startEl.value = '';
+    compute();
+  });
+});
+
+let debounceTimer;
+function scheduleCompute() {
+  clearTimeout(debounceTimer);
+  debounceTimer = setTimeout(compute, 200);
+}
+inputEl.addEventListener('input', scheduleCompute);
+startEl.addEventListener('input', scheduleCompute);
+
+function parseGrammar(text) {
+  const productions = [];
+  const order = [];
+  const lhsSet = new Set();
+  const lines = text.split('\n').map(l => l.trim()).filter(l => l && !l.startsWith('#'));
+  if (lines.length === 0) throw new Error('Empty grammar');
+
+  for (const line of lines) {
+    const m = line.match(/^(.+?)\s*(?:->|→|::=)\s*(.*)$/);
+    if (!m) throw new Error(`Missing "->" in line: ${line}`);
+    const lhs = m[1].trim();
+    if (!lhs) throw new Error(`Empty LHS: ${line}`);
+    if (lhs.includes(' ')) throw new Error(`LHS must be a single symbol: ${lhs}`);
+    const alts = m[2].split('|').map(a => a.trim());
+    if (!lhsSet.has(lhs)) { lhsSet.add(lhs); order.push(lhs); }
+    for (const alt of alts) {
+      const tokens = alt.split(/\s+/).filter(t => t.length > 0);
+      const rhs = tokens.length === 0 || tokens.every(t => t === EPS || t === 'epsilon' || t === 'eps')
+        ? []
+        : tokens.filter(t => t !== EPS && t !== 'epsilon' && t !== 'eps');
+      productions.push({ lhs, rhs });
+    }
+  }
+
+  const nonTerminals = new Set(order);
+  const terminals = new Set();
+  for (const p of productions) {
+    for (const sym of p.rhs) {
+      if (!nonTerminals.has(sym)) terminals.add(sym);
+    }
+  }
+
+  return { productions, order, nonTerminals, terminals };
+}
+
+function isNT(sym, nts) { return nts.has(sym); }
+
+function firstOfSeq(seq, first, nts) {
+  const result = new Set();
+  if (seq.length === 0) { result.add(EPS); return result; }
+  let allEps = true;
+  for (const sym of seq) {
+    if (!isNT(sym, nts)) { result.add(sym); allEps = false; break; }
+    const sf = first[sym] || new Set();
+    for (const s of sf) if (s !== EPS) result.add(s);
+    if (!sf.has(EPS)) { allEps = false; break; }
+  }
+  if (allEps) result.add(EPS);
+  return result;
+}
+
+function computeFirst(productions, nts, order) {
+  const first = {};
+  for (const nt of order) first[nt] = new Set();
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const { lhs, rhs } of productions) {
+      const sf = firstOfSeq(rhs, first, nts);
+      for (const s of sf) if (!first[lhs].has(s)) { first[lhs].add(s); changed = true; }
+    }
+  }
+  return first;
+}
+
+function computeFollow(productions, first, nts, order, start) {
+  const follow = {};
+  for (const nt of order) follow[nt] = new Set();
+  follow[start].add(END);
+  let changed = true;
+  while (changed) {
+    changed = false;
+    for (const { lhs, rhs } of productions) {
+      for (let i = 0; i < rhs.length; i++) {
+        const B = rhs[i];
+        if (!isNT(B, nts)) continue;
+        const beta = rhs.slice(i + 1);
+        const fb = firstOfSeq(beta, first, nts);
+        for (const s of fb) if (s !== EPS && !follow[B].has(s)) { follow[B].add(s); changed = true; }
+        if (fb.has(EPS)) {
+          for (const s of follow[lhs]) if (!follow[B].has(s)) { follow[B].add(s); changed = true; }
+        }
+      }
+    }
+  }
+  return follow;
+}
+
+function buildParseTable(productions, first, follow, nts, terminals) {
+  const table = {};
+  for (const nt of nts) table[nt] = {};
+  for (const prod of productions) {
+    const { lhs, rhs } = prod;
+    const fa = firstOfSeq(rhs, first, nts);
+    for (const a of fa) {
+      if (a === EPS) continue;
+      if (!table[lhs][a]) table[lhs][a] = [];
+      table[lhs][a].push(prod);
+    }
+    if (fa.has(EPS)) {
+      for (const b of follow[lhs]) {
+        if (!table[lhs][b]) table[lhs][b] = [];
+        table[lhs][b].push(prod);
+      }
+    }
+  }
+  return table;
+}
+
+function escapeHtml(s) {
+  return s.replace(/[&<>"']/g, c => ({ '&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;' }[c]));
+}
+
+function fmtSym(s) {
+  if (s === EPS) return '<span class="epsilon">ε</span>';
+  if (s === END) return '<span class="end-marker">$</span>';
+  return escapeHtml(s);
+}
+
+function fmtRhs(rhs) {
+  if (rhs.length === 0) return '<span class="epsilon">ε</span>';
+  return rhs.map(s => escapeHtml(s)).join(' ');
+}
+
+function fmtProd(p) {
+  return `${escapeHtml(p.lhs)}<span class="arrow">→</span>${fmtRhs(p.rhs)}`;
+}
+
+function renderSet(set) {
+  if (set.size === 0) return '<span class="epsilon">∅</span>';
+  const sorted = [...set].sort((a, b) => {
+    if (a === EPS) return 1; if (b === EPS) return -1;
+    if (a === END) return 1; if (b === END) return -1;
+    return a.localeCompare(b);
+  });
+  return sorted.map(fmtSym).join(', ');
+}
+
+function compute() {
+  const text = inputEl.value;
+  if (!text.trim()) {
+    resultsEl.innerHTML = '<div class="panel"><div class="empty-state">Enter a grammar above to compute the table</div></div>';
+    return;
+  }
+  try {
+    const { productions, order, nonTerminals, terminals } = parseGrammar(text);
+    const start = startEl.value.trim() || order[0];
+    if (!nonTerminals.has(start)) throw new Error(`Start symbol "${start}" is not a non-terminal`);
+
+    const first = computeFirst(productions, nonTerminals, order);
+    const follow = computeFollow(productions, first, nonTerminals, order, start);
+    const table = buildParseTable(productions, first, follow, nonTerminals, terminals);
+
+    let conflicts = 0;
+    for (const nt of order) {
+      for (const t of Object.keys(table[nt])) {
+        if (table[nt][t].length > 1) conflicts++;
+      }
+    }
+
+    const termCols = [...terminals].sort((a, b) => a.localeCompare(b));
+    termCols.push(END);
+
+    let html = '';
+
+    html += conflicts > 0
+      ? `<div class="status bad"><span class="dot"></span> Not LL(1) — ${conflicts} conflict${conflicts > 1 ? 's' : ''} in the table</div>`
+      : `<div class="status ok"><span class="dot"></span> Grammar is LL(1)</div>`;
+
+    html += '<div class="panel"><h2>FIRST / FOLLOW</h2><div class="table-wrap"><table class="ff-table"><thead><tr><th>Non-terminal</th><th>FIRST</th><th>FOLLOW</th></tr></thead><tbody>';
+    for (const nt of order) {
+      html += `<tr><td class="nt">${escapeHtml(nt)}${nt === start ? ' <span style="color:var(--muted);font-weight:400;font-size:0.72rem;">(start)</span>' : ''}</td><td class="set">${renderSet(first[nt])}</td><td class="set">${renderSet(follow[nt])}</td></tr>`;
+    }
+    html += '</tbody></table></div></div>';
+
+    html += '<div class="panel"><h2>Parsing Table M[A, a]</h2><div class="table-wrap"><table><thead><tr><th></th>';
+    for (const t of termCols) html += `<th class="term-col">${fmtSym(t)}</th>`;
+    html += '</tr></thead><tbody>';
+    for (const nt of order) {
+      html += `<tr><td class="nt">${escapeHtml(nt)}</td>`;
+      for (const t of termCols) {
+        const cell = table[nt][t];
+        if (!cell || cell.length === 0) {
+          html += '<td></td>';
+        } else if (cell.length === 1) {
+          html += `<td><span class="prod-line">${fmtProd(cell[0])}</span></td>`;
+        } else {
+          html += `<td class="conflict"><span class="conflict-marker">conflict</span>` +
+            cell.map(p => `<span class="prod-line">${fmtProd(p)}</span>`).join('') +
+            '</td>';
+        }
+      }
+      html += '</tr>';
+    }
+    html += '</tbody></table></div></div>';
+
+    resultsEl.innerHTML = html;
+  } catch (e) {
+    resultsEl.innerHTML = `<div class="panel"><div class="error">${escapeHtml(e.message)}</div></div>`;
+  }
+}
+
+compute();
+
+const SUN = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="4"/><path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M4.93 19.07l1.41-1.41M17.66 6.34l1.41-1.41"/></svg>';
+const MOON = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z"/></svg>';
+const themeToggle = document.getElementById('themeToggle');
+function syncIcon() {
+  themeToggle.innerHTML = document.documentElement.getAttribute('data-theme') === 'dark' ? SUN : MOON;
+}
+syncIcon();
+themeToggle.addEventListener('click', () => {
+  const next = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark';
+  document.documentElement.setAttribute('data-theme', next);
+  localStorage.setItem('tools-theme', next);
+  syncIcon();
+});
+</script>
+</body>
+</html>
